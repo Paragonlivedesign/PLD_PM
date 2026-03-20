@@ -4,7 +4,7 @@ Paragon Live Design — **production management** UI workspace (HTML/JS prototyp
 
 **Folder name:** Prefer the directory name `PLD_PM` on Desktop (`C:\Users\codya\Desktop\PLD_PM`). If this folder is still named `TEST UI`, rename it when nothing has the folder open (close Cursor tabs / File Explorer windows pointing here), then reopen the workspace.
 
-**Git:** Run `git init` here when you are ready, add a `.gitignore`, then connect `git remote add origin …` to your hosting (GitHub, etc.). You can keep this as a standalone frontend repo or later move the app into a larger monorepo `frontend/` folder.
+**Git:** Remote — [github.com/Paragonlivedesign/PLD_PM](https://github.com/Paragonlivedesign/PLD_PM). You can keep this as a standalone frontend repo or later move the app into a larger monorepo `frontend/` folder.
 
 **Deploy:** Production target is `https://pm.paragonlivedesign.com` (Firebase Hosting — second site). See Planning repo’s multi-agent start plan for full bootstrap steps.
 
