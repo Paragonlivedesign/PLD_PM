@@ -1,0 +1,47 @@
+﻿/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 1024px) {
+  .grid-2, .grid-3, .grid-2-1 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    z-index: 50;
+    transition: transform var(--transition-base);
+  }
+
+  .sidebar.mobile-open { transform: translateX(0); }
+
+  .topbar-menu-btn { display: block; }
+
+  .search-trigger { min-width: 200px; }
+  .search-trigger span { display: none; }
+
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================
+   Conflict Warning Banner
+   ============================================ */
+.conflict-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  background: var(--accent-red-muted);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--accent-red);
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.conflict-banner svg { width: 18px; height: 18px; flex-shrink: 0; }

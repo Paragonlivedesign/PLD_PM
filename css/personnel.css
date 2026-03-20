@@ -1,0 +1,67 @@
+﻿/* ============================================
+   Personnel Cards
+   ============================================ */
+.personnel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.personnel-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.personnel-card:hover {
+  border-color: var(--border-default);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.personnel-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.personnel-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.personnel-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.personnel-role {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.personnel-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.personnel-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 0;
+  font-weight: 500;
+}
+

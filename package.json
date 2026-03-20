@@ -1,0 +1,17 @@
+{
+  "name": "pld-pm",
+  "type": "module",
+  "private": true,
+  "description": "Paragon Live Design — production management UI (PLD_PM)",
+  "scripts": {
+    "emulators": "firebase emulators:start --only hosting,auth,ui",
+    "emulators:hosting": "firebase emulators:start --only hosting",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "firebase-tools": "^13.35.0"
+  }
+}

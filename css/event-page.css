@@ -1,0 +1,1159 @@
+/* ============================================
+   Event Detail Panel
+   ============================================ */
+.event-detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.event-detail-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.event-detail-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.event-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.event-meta-item svg { width: 14px; height: 14px; }
+
+/* Phase transition buttons */
+.phase-transition {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 16px 0;
+}
+
+.phase-transition-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+/* ============================================
+   Empty State
+   ============================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-xl);
+  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.empty-state-icon svg { width: 28px; height: 28px; color: var(--text-tertiary); }
+
+.empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.empty-state p { font-size: 13px; color: var(--text-tertiary); max-width: 360px; }
+
+/* ============================================
+   Running Schedule (Spreadsheet-style)
+   ============================================ */
+.running-schedule-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.rs-event-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 2px solid var(--border-default);
+  background: var(--bg-tertiary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.rs-grid {
+  display: grid;
+  min-width: max-content;
+}
+
+.rs-cell {
+  padding: 6px 8px;
+  font-size: 11px;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.rs-cell.rs-header {
+  background: var(--bg-tertiary);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-primary);
+  text-align: center;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 2px solid var(--border-default);
+}
+
+.rs-cell.rs-corner {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  background: var(--bg-tertiary);
+}
+
+.rs-cell.rs-date-header {
+  flex-direction: column;
+  gap: 0;
+  line-height: 1.2;
+}
+
+.rs-cell.rs-phase-cell {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-blue);
+  background: var(--accent-blue-muted);
+  justify-content: center;
+  text-align: center;
+}
+
+.rs-cell.rs-phase-cell.off-day {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+
+.rs-cell.show-day {
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.rs-cell.rs-header.show-day {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+}
+
+.rs-cell.rs-phase-cell.show-day {
+  background: rgba(234, 179, 8, 0.2);
+  color: #eab308;
+  font-weight: 800;
+}
+
+.rs-cell.off-day {
+  background: var(--bg-primary);
+  opacity: 0.5;
+}
+
+.rs-cell.rs-row-label {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: var(--bg-secondary);
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  gap: 6px;
+  border-right: 2px solid var(--border-default);
+}
+
+.rs-dept-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.rs-cell.rs-section-label {
+  background: var(--bg-primary);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border-default);
+  border-right: none;
+}
+
+.rs-cell.hotel-cell:not(:empty) {
+  background: rgba(139, 92, 246, 0.08);
+  color: var(--accent-purple, #8b5cf6);
+}
+
+.rs-cell.flight-cell:not(:empty) {
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--accent-blue);
+}
+
+/* Highlight cells that have content */
+.rs-cell:not(.rs-header):not(.rs-row-label):not(.rs-section-label):not(.rs-phase-cell):not(.rs-corner):not(:empty) {
+  font-weight: 500;
+}
+
+/* Hover row highlight */
+.rs-grid .rs-cell:not(.rs-header):not(.rs-section-label):not(.rs-phase-cell):hover {
+  background: var(--bg-hover);
+  cursor: pointer;
+}
+
+/* ============================================
+   Running Schedule Settings Panel & Layout
+   ============================================ */
+.rs-content-layout {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+
+.rs-content-layout .rs-tab-content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.rs-content-layout.settings-open .rs-tab-content {
+  flex: 1;
+}
+
+.rs-settings-panel {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--bg-tertiary);
+  border-left: 2px solid var(--border-default);
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.rss-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--bg-tertiary);
+  z-index: 2;
+}
+
+.rss-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.rss-section:last-child {
+  border-bottom: none;
+}
+
+.rss-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.rss-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.rss-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.rss-toggle-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+}
+
+.rss-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rss-check-row input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+}
+
+.rss-check-row.rss-indent {
+  padding-left: 22px;
+  font-size: 11px;
+}
+
+.rss-row-list {
+  margin: 4px 0;
+  padding: 4px 0 4px 0;
+  border-left: 2px solid var(--border-subtle);
+  margin-left: 6px;
+}
+
+.rs-settings-btn.active {
+  background: var(--accent-blue-muted);
+  color: var(--accent-blue);
+}
+
+/* Clickable cells */
+.rs-clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.rs-clickable:hover {
+  background: var(--accent-blue-muted) !important;
+  color: var(--accent-blue) !important;
+}
+
+.rs-clickable:hover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--accent-blue);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Compact mode */
+.rs-grid.rs-compact .rs-cell {
+  padding: 3px 5px;
+  font-size: 10px;
+  min-height: 24px;
+}
+
+.rs-grid.rs-compact .rs-cell.rs-header {
+  padding: 4px 5px;
+  font-size: 9px;
+}
+
+.rs-grid.rs-compact .rs-cell.rs-section-label {
+  padding: 5px 8px;
+  font-size: 9px;
+}
+
+/* ============================================
+   Workbook Tabs (bottom of running schedule)
+   ============================================ */
+.rs-workbook-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--bg-primary);
+  border-bottom: 2px solid var(--border-default);
+  padding: 0 8px;
+}
+
+.rs-wb-tab {
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  margin-right: 2px;
+  transition: all var(--transition-fast);
+  position: relative;
+  top: 2px;
+}
+
+.rs-wb-tab:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.rs-wb-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border-color: var(--border-default);
+  border-bottom: 2px solid var(--bg-secondary);
+  top: 2px;
+}
+
+/* ============================================
+   Daily Schedule (Call Sheet / Show Paperwork)
+   ============================================ */
+.ds-container {
+  overflow-x: auto;
+}
+
+.ds-header-row {
+  display: grid;
+  grid-template-columns: 90px 90px 120px 240px 1fr 1fr;
+  background: var(--bg-tertiary);
+  border-bottom: 2px solid var(--border-default);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.ds-header-row .ds-col {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.ds-day-header {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-default);
+  border-top: 2px solid var(--border-default);
+}
+
+.ds-day-header.show-day {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border-top-color: #eab308;
+}
+
+.ds-empty-day {
+  height: 28px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ds-row {
+  display: grid;
+  grid-template-columns: 90px 90px 120px 240px 1fr 1fr;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
+}
+
+.ds-row:hover {
+  background: var(--bg-hover);
+}
+
+.ds-row .ds-col {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+}
+
+.ds-row .ds-col-start,
+.ds-row .ds-col-end {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+
+.ds-row .ds-col-dept {
+  font-weight: 500;
+}
+
+.ds-row .ds-col-action {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ds-row.show-day-row {
+  background: rgba(234, 179, 8, 0.04);
+}
+
+.ds-row.show-day-row:hover {
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.ds-row.truck-row {
+  background: rgba(234, 179, 8, 0.06);
+}
+
+.ds-row.truck-row .ds-col-dept,
+.ds-row.truck-row .ds-col-action {
+  color: #eab308;
+}
+
+/* ============================================
+   Crew List Table
+   ============================================ */
+.cl-container {
+  overflow-x: auto;
+}
+
+.cl-title-bar {
+  padding: 16px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 2px solid var(--border-default);
+}
+
+.cl-table-wrap {
+  overflow-x: auto;
+}
+
+.cl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cl-table thead th {
+  padding: 8px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-bottom: 2px solid var(--border-default);
+  border-right: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cl-table thead th.cl-th-hotel,
+.cl-table thead th.cl-th-transport {
+  text-align: center;
+  background: var(--bg-primary);
+  font-size: 11px;
+}
+
+.cl-subheader th {
+  font-size: 9px !important;
+  padding: 4px 10px !important;
+  color: var(--text-tertiary) !important;
+  background: var(--bg-tertiary) !important;
+}
+
+.cl-row td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  border-right: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.cl-row:hover td {
+  background: var(--bg-hover);
+}
+
+.cl-num {
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  width: 32px;
+}
+
+.cl-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.cl-pos {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.cl-phone {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.cl-email {
+  color: var(--accent-blue);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.cl-date {
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.cl-confirm {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.cl-check {
+  text-align: center;
+  width: 40px;
+}
+
+.cl-separator td {
+  height: 8px;
+  background: var(--bg-primary);
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Reference Info Section */
+.cl-reference-section {
+  padding: 20px;
+  border-top: 2px solid var(--border-default);
+  background: var(--bg-primary);
+}
+
+.cl-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.cl-ref-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.cl-ref-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.cl-ref-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.cl-ref-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.cl-ref-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cl-ref-meta span {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.cl-ref-link {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cl-ref-link:hover {
+  text-decoration: underline;
+}
+
+/* Radio channel badges */
+.radio-ch-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* ============================================
+   Breadcrumb Links
+   ============================================ */
+.breadcrumb-link {
+  cursor: pointer;
+  color: var(--accent-blue);
+}
+.breadcrumb-link:hover {
+  text-decoration: underline;
+}
+.breadcrumb-sep {
+  color: var(--text-tertiary);
+  margin: 0 4px;
+}
+
+/* ============================================
+   Calendar View
+   ============================================ */
+.calendar-container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+}
+.cal-month-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.cal-header {
+  padding: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-align: center;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-default);
+}
+.cal-cell {
+  min-height: 100px;
+  padding: 6px;
+  border-right: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  cursor: default;
+}
+.cal-cell:nth-child(7n) {
+  border-right: none;
+}
+.cal-cell.cal-empty {
+  background: var(--bg-tertiary);
+  opacity: 0.5;
+}
+.cal-cell.cal-today {
+  background: var(--accent-blue-muted);
+}
+.cal-day-num {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.cal-day-num.today-num {
+  background: var(--accent-blue);
+  color: #fff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.cal-event-chip {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 6px;
+  margin-bottom: 2px;
+  border-radius: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cal-event-chip:hover {
+  opacity: 0.8;
+}
+.cal-more {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  padding: 1px 6px;
+}
+.cal-cell-clickable {
+  cursor: pointer;
+  transition: background 150ms, box-shadow 150ms;
+  position: relative;
+}
+.cal-cell-clickable:hover {
+  background: rgba(59,130,246,0.06);
+  box-shadow: inset 0 0 0 2px var(--accent-blue);
+}
+.cal-cell-clickable:hover .cal-add-hint {
+  opacity: 1;
+}
+.cal-add-hint {
+  opacity: 0;
+  font-size: 11px;
+  color: var(--accent-blue);
+  font-weight: 500;
+  text-align: center;
+  padding: 4px 0;
+  transition: opacity 150ms;
+}
+
+/* ============================================
+   Event / Project Page
+   ============================================ */
+.event-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: calc(100vh - 60px);
+}
+.ep-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  flex-wrap: wrap;
+}
+.ep-header-left { flex: 1; min-width: 0; }
+.ep-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.ep-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ep-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.ep-priority {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.ep-meta-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.ep-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Event Page Tabs */
+.ep-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--bg-secondary);
+  border-bottom: 2px solid var(--border-default);
+  padding: 0 24px;
+  overflow-x: auto;
+}
+.ep-tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.ep-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+.ep-tab.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+  font-weight: 600;
+}
+
+/* Event Page Content */
+.ep-content {
+  padding: 24px;
+  flex: 1;
+}
+.ep-content.ep-content-full {
+  padding: 0;
+}
+
+/* Event Page Overview Grid */
+.ep-overview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.ep-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.ep-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.ep-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+.ep-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .ep-two-col { grid-template-columns: 1fr; }
+}
+
+/* Event Page List Items */
+.ep-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ep-list-item:hover {
+  background: var(--bg-tertiary);
+}
+.ep-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+.ep-list-info { flex: 1; min-width: 0; }
+.ep-list-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ep-list-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.ep-list-extra {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.ep-list-more {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--accent-blue);
+  cursor: pointer;
+  font-weight: 500;
+}
+.ep-list-more:hover {
+  text-decoration: underline;
+}
+.ep-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.ep-empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+.ep-empty-state h3 {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+}
+.ep-empty-state p {
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+
+/* Event Page Clickable */
+.ep-clickable {
+  cursor: pointer;
+  color: var(--accent-blue);
+}
+.ep-clickable:hover {
+  text-decoration: underline;
+}
+
+/* Event Page Tab Headers */
+.ep-tab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ep-tab-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.ep-tab-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ep-tab-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Department Groups */
+.ep-dept-group {
+  margin-bottom: 16px;
+}
+.ep-dept-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  margin-bottom: 8px;
+}
+
+/* Floating Settings Button */
+.ep-floating-settings {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100;
+}
+.ep-floating-settings .rs-settings-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ep-floating-settings .rs-settings-btn:hover {
+  background: var(--accent-blue);
+  opacity: 0.9;
+}
+.ep-floating-settings .rs-settings-btn.active {
+  background: var(--accent-red);
+}
+
+/* Availability Grid Controls */
+.avail-grid-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* Event page inner tab content - full bleed for workbook views */
+.ep-content-full .running-schedule-wrapper {
+  border-radius: 0;
+}
+.ep-content-full .rs-event-header {
+  border-radius: 0;
+}
+.ep-content-full .cl-container,
+.ep-content-full .ds-container {
+  padding: 16px;
+}

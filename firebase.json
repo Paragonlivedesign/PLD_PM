@@ -1,0 +1,25 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      ".git/**",
+      "package.json",
+      "package-lock.json",
+      "pnpm-lock.yaml",
+      "playwright.config.js",
+      "tests/**",
+      "*.md",
+      "docs/**",
+      ".github/**"
+    ],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  },
+  "emulators": {
+    "hosting": { "port": 5000, "host": "127.0.0.1" },
+    "auth": { "port": 9099, "host": "127.0.0.1" },
+    "ui": { "enabled": true, "host": "127.0.0.1", "port": 4000 }
+  }
+}

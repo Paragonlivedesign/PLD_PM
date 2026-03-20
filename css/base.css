@@ -1,0 +1,103 @@
+﻿/* ============================================
+   Production Manager â€” Test UI Styles
+   Modern dark theme with glassmorphism accents
+   ============================================ */
+
+:root {
+  /* Colors */
+  --bg-primary: #0f1117;
+  --bg-secondary: #161922;
+  --bg-tertiary: #1c2030;
+  --bg-elevated: #222639;
+  --bg-hover: #262b3f;
+  --bg-active: #2d3352;
+
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.15);
+
+  --text-primary: #e8eaf0;
+  --text-secondary: #9ba1b4;
+  --text-tertiary: #6b7280;
+  --text-inverse: #0f1117;
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --accent-blue-muted: rgba(59, 130, 246, 0.15);
+  --accent-purple: #8b5cf6;
+  --accent-purple-muted: rgba(139, 92, 246, 0.15);
+  --accent-green: #22c55e;
+  --accent-green-muted: rgba(34, 197, 94, 0.15);
+  --accent-amber: #f59e0b;
+  --accent-amber-muted: rgba(245, 158, 11, 0.15);
+  --accent-red: #ef4444;
+  --accent-red-muted: rgba(239, 68, 68, 0.15);
+  --accent-cyan: #06b6d4;
+  --accent-cyan-muted: rgba(6, 182, 212, 0.15);
+  --accent-orange: #f97316;
+  --accent-orange-muted: rgba(249, 115, 22, 0.15);
+  --accent-pink: #ec4899;
+  --accent-pink-muted: rgba(236, 72, 153, 0.15);
+
+  /* Phase colors */
+  --phase-bidding: #94a3b8;
+  --phase-awarded: #3b82f6;
+  --phase-preproduction: #8b5cf6;
+  --phase-production: #f59e0b;
+  --phase-live: #ef4444;
+  --phase-wrap: #f97316;
+  --phase-settled: #22c55e;
+  --phase-archived: #6b7280;
+
+  /* Sizing */
+  --sidebar-width: 260px;
+  --sidebar-collapsed: 64px;
+  --topbar-height: 56px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow-blue: 0 0 20px rgba(59, 130, 246, 0.3);
+
+  /* Density */
+  --density: 1;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 400ms ease;
+}
+
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  transition: background 300ms ease, color 300ms ease;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
