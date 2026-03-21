@@ -4,6 +4,7 @@ export const ENTITY_TYPES = [
     "travel_record",
     "financial_line_item",
     "department",
+    "truck",
 ];
 export const FIELD_TYPES = [
     "text",

@@ -1,5 +1,4 @@
 import type {
-  RouteLocationRef,
   TruckAssignmentResponse,
   TruckResponse,
   TruckRoutePublicResponse,
@@ -9,6 +8,8 @@ import { randomBytes } from "node:crypto";
 import { TRUCK_TYPES, TRUCK_STATUSES } from "@pld/shared";
 import { pool } from "../../db/pool.js";
 import { domainBus } from "../../domain/bus.js";
+import { emitEntityCustomFieldsUpdated } from "../../domain/entity-events.js";
+import { validateCustomFields } from "../custom-fields/service.js";
 import { newId } from "../../utils/ids.js";
 import { eachDateInclusive, rangesOverlap } from "../../utils/dates.js";
 import { countActiveFutureAssignmentsForTruck } from "../scheduling/truck-assignments.repository.js";
@@ -41,7 +42,6 @@ import {
   insertTruckRoute,
   listRoutesByEvent,
   listTruckRoutes,
-  listTruckRoutesOverlappingDateRange,
   mapTruckRouteRow,
   setDriverShareToken,
   updateTruckRoutePartial,
@@ -55,6 +55,7 @@ import {
 } from "./route-location.js";
 import { computeRouteDirections, type LatLng } from "./route-directions.js";
 import { getEventById } from "../events/repository.js";
+import { writeAuditLog } from "../audit/service.js";
 
 function isTruckType(s: string): s is (typeof TRUCK_TYPES)[number] {
   return (TRUCK_TYPES as readonly string[]).includes(s);
@@ -95,7 +96,7 @@ async function scheduleConflictHint(
   return null;
 }
 
-export async function enrichTruckRouteResponse(row: DbTruckRouteRow): Promise<TruckRouteResponse> {
+async function enrichTruckRouteResponse(row: DbTruckRouteRow): Promise<TruckRouteResponse> {
   const mapped = mapTruckRouteRow(row);
   const hint = await scheduleConflictHint(row.tenant_id, row.event_id, mapped.estimated_arrival);
   return mapTruckRouteRow(row, {
@@ -236,6 +237,15 @@ export async function createTruck(input: {
   });
 
   domainBus.emit("truck.created", { truck_id: data.id, tenant_id: input.tenantId });
+
+  void writeAuditLog(pool, {
+    tenantId: input.tenantId,
+    userId: input.userId,
+    entityType: "truck",
+    entityId: data.id,
+    action: "create",
+    changes: { after: { name } },
+  }).catch(() => undefined);
 
   return { ok: true, data };
 }
@@ -419,8 +429,39 @@ export async function updateTruck(input: {
     patch.metadata = { ...existing, ...(input.body.metadata as Record<string, unknown>) };
   }
 
+  if (input.body.custom_fields !== undefined) {
+    const existing =
+      cur.custom_fields && typeof cur.custom_fields === "object" && !Array.isArray(cur.custom_fields)
+        ? (cur.custom_fields as Record<string, unknown>)
+        : {};
+    const merged = {
+      ...existing,
+      ...(input.body.custom_fields as Record<string, unknown>),
+    };
+    const cfCheck = await validateCustomFields(pool, "truck", input.tenantId, merged);
+    if (!cfCheck.valid) {
+      return {
+        ok: false,
+        status: 400,
+        errors: cfCheck.errors.map((e) => ({
+          code: e.code || "validation",
+          message: e.message,
+        })),
+      };
+    }
+    patch.custom_fields = cfCheck.cleaned_values;
+  }
+
   const data = await updateTruckPartial(pool, input.tenantId, input.id, patch);
   if (!data) return { ok: false, status: 404, errors: [{ code: "not_found", message: "Not found" }] };
+
+  if ("custom_fields" in patch) {
+    emitEntityCustomFieldsUpdated({
+      tenantId: input.tenantId,
+      entityType: "truck",
+      entityId: input.id,
+    });
+  }
 
   domainBus.emit("truck.updated", {
     truck_id: data.id,
@@ -434,6 +475,7 @@ export async function updateTruck(input: {
 export async function retireTruckApi(
   tenantId: string,
   id: string,
+  userId: string | null = null,
 ): Promise<
   | { ok: true; data: { id: string; status: string; retired_at: string } }
   | { ok: false; status: 404 | 409; errors: { code: string; message: string }[] }
@@ -465,6 +507,15 @@ export async function retireTruckApi(
     old_status: row.status,
     new_status: "retired",
   });
+
+  void writeAuditLog(pool, {
+    tenantId,
+    userId,
+    entityType: "truck",
+    entityId: id,
+    action: "retire",
+    changes: { before: { status: row.status } },
+  }).catch(() => undefined);
 
   return { ok: true, data };
 }

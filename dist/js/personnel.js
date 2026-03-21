@@ -8,10 +8,40 @@ window.__pldPersonnelApiRows = window.__pldPersonnelApiRows ?? null;
 window.__pldDepartmentsApiRows = window.__pldDepartmentsApiRows ?? null;
 /** @type {string | null} */
 window.__pldPersonnelApiLoadError = window.__pldPersonnelApiLoadError ?? null;
+/** @type {string} */
+window.__pldPersonnelListSearch = window.__pldPersonnelListSearch ?? '';
+/** @type {string} */
+window.__pldPersonnelListStatus = window.__pldPersonnelListStatus ?? '';
+/** @type {string} */
+window.__pldPersonnelListDepartmentId = window.__pldPersonnelListDepartmentId ?? '';
+/** @type {ReturnType<typeof setTimeout> | null} */
+window.__pldPersonnelSearchTimer = window.__pldPersonnelSearchTimer ?? null;
+/** @type {File | null} */
+window.__pldPendingCrewPhotoFile = window.__pldPendingCrewPhotoFile ?? null;
+/** @type {File | null} */
+window.__pldPersonnelDetailPhotoFile = window.__pldPersonnelDetailPhotoFile ?? null;
+
+const PLD_CREW_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 function pldApiBaseActive() {
   return typeof window.PLD_API_BASE === 'string' && window.PLD_API_BASE.trim() !== '';
 }
+
+function pldPersonnelListQueryString() {
+  const q = new URLSearchParams();
+  q.set('limit', '100');
+  q.set('sort_by', 'name');
+  q.set('sort_order', 'asc');
+  const s = (window.__pldPersonnelListSearch || '').trim();
+  if (s) q.set('search', s);
+  const st = (window.__pldPersonnelListStatus || '').trim();
+  if (st) q.set('status', st);
+  const dept = (window.__pldPersonnelListDepartmentId || '').trim();
+  if (dept) q.set('department_id', dept);
+  return q.toString();
+}
+
+window.pldBuildPersonnelListQueryString = pldPersonnelListQueryString;
 
 async function fetchPersonnelFromApiIfConfigured() {
   if (typeof window.pldApiFetch !== 'function') return;
@@ -21,7 +51,7 @@ async function fetchPersonnelFromApiIfConfigured() {
   }
   window.__pldPersonnelApiLoadError = null;
   const [pr, dr] = await Promise.all([
-    window.pldApiFetch('/api/v1/personnel?limit=100&sort_by=name&sort_order=asc'),
+    window.pldApiFetch('/api/v1/personnel?' + pldPersonnelListQueryString()),
     window.pldApiFetch('/api/v1/departments?include_counts=true'),
   ]);
   if (!pr.ok || !pr.body || !Array.isArray(pr.body.data)) {
@@ -67,6 +97,7 @@ function pldPersonnelCardRows() {
         .join('')
         .slice(0, 2)
         .toUpperCase() || '?';
+      const photoUrl = r.photo_url ? String(r.photo_url) : '';
       return {
         id: String(r.id),
         name,
@@ -77,11 +108,17 @@ function pldPersonnelCardRows() {
         status: String(r.status),
         rate: r.day_rate != null ? Number(r.day_rate) : 0,
         initials,
-        avatar: `linear-gradient(135deg, ${color}, #9333ea)`,
+        avatar: photoUrl ? '' : `linear-gradient(135deg, ${color}, #9333ea)`,
+        photo_url: photoUrl,
+        photo_document_id: r.photo_document_id != null ? String(r.photo_document_id) : '',
         source: 'api',
         email: String(r.email || ''),
         employment_type: String(r.employment_type || ''),
         version: r.version != null ? Number(r.version) : 1,
+        custom_fields:
+          r.custom_fields && typeof r.custom_fields === 'object' && !Array.isArray(r.custom_fields)
+            ? /** @type {Record<string, unknown>} */ (r.custom_fields)
+            : {},
       };
     });
   }
@@ -92,8 +129,51 @@ function pldPersonnelCardRows() {
       deptName: dept.name,
       deptColor: dept.color,
       source: 'firestore',
+      photo_url: '',
+      photo_document_id: '',
     };
   });
+}
+
+/** Filtered roster for directory / availability (API applies query; Firestore filters client-side). */
+function pldPersonnelRowsForDisplay() {
+  const rows = pldPersonnelCardRows();
+  if (pldApiBaseActive()) return rows;
+  const q = (window.__pldPersonnelListSearch || '').trim().toLowerCase();
+  const st = (window.__pldPersonnelListStatus || '').trim();
+  const dept = (window.__pldPersonnelListDepartmentId || '').trim();
+  return rows.filter(function (p) {
+    if (dept && String(p.dept) !== dept) return false;
+    if (st && String(p.status) !== st) return false;
+    if (!q) return true;
+    const hay = [p.name, p.role, p.deptName, p.email || '']
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return hay.indexOf(q) >= 0;
+  });
+}
+
+function onPersonnelSearchInput(value) {
+  window.__pldPersonnelListSearch = value;
+  if (window.__pldPersonnelSearchTimer) clearTimeout(window.__pldPersonnelSearchTimer);
+  window.__pldPersonnelSearchTimer = setTimeout(function () {
+    window.__pldPersonnelSearchTimer = null;
+    if (pldApiBaseActive()) void fetchPersonnelFromApiIfConfigured();
+    else if (typeof renderPage === 'function') renderPage('personnel', { skipModuleDataFetch: true });
+  }, 300);
+}
+
+function onPersonnelDepartmentFilter(value) {
+  window.__pldPersonnelListDepartmentId = value ? String(value) : '';
+  if (pldApiBaseActive()) void fetchPersonnelFromApiIfConfigured();
+  else if (typeof renderPage === 'function') renderPage('personnel', { skipModuleDataFetch: true });
+}
+
+function onPersonnelStatusFilter(value) {
+  window.__pldPersonnelListStatus = value ? String(value) : '';
+  if (pldApiBaseActive()) void fetchPersonnelFromApiIfConfigured();
+  else if (typeof renderPage === 'function') renderPage('personnel', { skipModuleDataFetch: true });
 }
 
 function personnelStatusDot(row) {
@@ -135,7 +215,17 @@ function pldPersonnelIdFromAttr(raw) {
   }
 }
 
-/** Add-crew modal tabs (was referenced in HTML but undefined — clicks were no-ops after open). */
+function pldContextMenuPersonnelCard(domEvent, el) {
+  if (typeof window.pldShowContextMenu !== 'function' || !el) return;
+  const raw = el.getAttribute('data-pld-personnel-id');
+  const id = pldPersonnelIdFromAttr(raw);
+  if (!id) return;
+  window.pldShowContextMenu(domEvent.clientX, domEvent.clientY, [
+    { label: 'View / edit', action: function () { openPersonnelDetail(id); } },
+  ]);
+}
+
+/** Add-personnel modal tabs (was referenced in HTML but undefined — clicks were no-ops after open). */
 function switchCrewTab(btn, tabId) {
   const root = btn && btn.closest ? btn.closest('#modal') : null;
   if (!root) return;
@@ -146,53 +236,166 @@ function switchCrewTab(btn, tabId) {
   if (panel) panel.classList.add('active');
 }
 
-function handleCrewPhotoUpload(_input) {
-  if (typeof showToast === 'function') showToast('Photo selected — upload is not implemented yet.', 'info');
+function handleCrewPhotoUpload(input) {
+  const f = input && input.files && input.files[0];
+  if (!f) return;
+  if (f.size > PLD_CREW_PHOTO_MAX_BYTES) {
+    if (typeof showToast === 'function') showToast('Photo must be 5 MB or smaller.', 'error');
+    input.value = '';
+    return;
+  }
+  if (!f.type.startsWith('image/')) {
+    if (typeof showToast === 'function') showToast('Please choose an image file.', 'error');
+    input.value = '';
+    return;
+  }
+  window.__pldPendingCrewPhotoFile = f;
+  const preview = document.querySelector('#modal .photo-upload-preview');
+  if (preview) {
+    const prevUrl = preview.getAttribute('data-pld-temp-preview');
+    if (prevUrl) URL.revokeObjectURL(prevUrl);
+    const url = URL.createObjectURL(f);
+    preview.setAttribute('data-pld-temp-preview', url);
+    preview.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block;">`;
+  }
+}
+
+function handlePersonnelDetailPhotoPick(input) {
+  const f = input && input.files && input.files[0];
+  if (!f) return;
+  if (f.size > PLD_CREW_PHOTO_MAX_BYTES) {
+    if (typeof showToast === 'function') showToast('Photo must be 5 MB or smaller.', 'error');
+    input.value = '';
+    return;
+  }
+  if (!f.type.startsWith('image/')) {
+    if (typeof showToast === 'function') showToast('Please choose an image file.', 'error');
+    input.value = '';
+    return;
+  }
+  window.__pldPersonnelDetailPhotoFile = f;
+  const prevSlot = document.getElementById('pldPdAvatarSlot');
+  if (prevSlot) {
+    const prevUrl = prevSlot.getAttribute('data-pld-temp-preview');
+    if (prevUrl) URL.revokeObjectURL(prevUrl);
+    const url = URL.createObjectURL(f);
+    prevSlot.setAttribute('data-pld-temp-preview', url);
+    prevSlot.innerHTML = `<img src="${url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">`;
+  }
+}
+
+/**
+ * @param {File} file
+ * @param {string} [personnelId] optional — sent as documents.entity_id when present
+ * @returns {Promise<string | null>} document id
+ */
+async function pldUploadPersonnelPhotoFile(file, personnelId) {
+  if (typeof window.pldApiFormFetch !== 'function') return null;
+  const fd = new FormData();
+  fd.append('file', file, file.name || 'photo.jpg');
+  fd.append('category', 'photo');
+  fd.append('entity_type', 'personnel');
+  if (personnelId) fd.append('entity_id', personnelId);
+  fd.append('visibility', 'internal');
+  const r = await window.pldApiFormFetch('/api/v1/documents/upload', fd);
+  if (!r.ok || !r.body || !r.body.data || !r.body.data.id) {
+    const msg =
+      r.body && r.body.errors && r.body.errors[0] && r.body.errors[0].message
+        ? String(r.body.errors[0].message)
+        : 'Photo upload failed (documents:upload permission required)';
+    if (typeof showToast === 'function') showToast(msg, 'error');
+    return null;
+  }
+  return String(r.body.data.id);
 }
 
 function personnelSourceBannerHtml() {
   const box =
     'font-size:12px;margin:0 0 16px 0;padding:10px 12px;background:var(--bg-tertiary);border-radius:var(--radius-md);border:1px solid var(--border-subtle);max-width:920px;color:var(--text-tertiary);';
   if (!pldApiBaseActive()) {
-    return `<p style="${box}"><strong>Firestore roster</strong> — seed data from the emulator. For <strong>PostgreSQL</strong> and real CRUD, set <code>&lt;meta name="pld-api-base" content="http://127.0.0.1:3000"&gt;</code> (default in repo) and run the API.</p>`;
+    return `<p class="pld-directory-api-hint" style="${box}">Local roster (Firestore seed). Set <code>pld-api-base</code> for PostgreSQL CRUD.</p>`;
   }
   if (window.__pldPersonnelApiLoadError) {
-    return `<p style="${box};border-color:var(--accent-red);color:var(--text-secondary);"><strong>PostgreSQL API</strong> — ${pldEscapeHtml(window.__pldPersonnelApiLoadError)} Run <code>npm run dev -w backend</code>, migrate DB, and set <code>CORS_ORIGIN</code> to include this page origin (see <code>.env.example</code>).</p>`;
+    return `<p class="pld-directory-error-banner is-fatal" style="${box};border-left:3px solid var(--accent-red);">${pldEscapeHtml(window.__pldPersonnelApiLoadError)}</p>`;
   }
   if (window.__pldPersonnelApiRows === null) {
-    return `<p style="${box}">Loading personnel from <strong>PostgreSQL</strong>…</p>`;
+    return `<p style="${box}">Loading roster…</p>`;
   }
-  return `<p style="${box}">Roster from <strong>PostgreSQL</strong> at <code>${pldEscapeHtml(String(window.PLD_API_BASE || ''))}</code>. Use <strong>Save</strong> on a profile or CSV import to persist. Firestore seed is not used while this meta is set.</p>`;
+  return `<p class="pld-directory-api-hint" style="${box}">Connected to <code>${pldEscapeHtml(String(window.PLD_API_BASE || ''))}</code></p>`;
 }
 
 function renderPersonnel() {
-  const rows = pldPersonnelCardRows();
-  const apiNote = pldApiBaseActive() ? ' · PostgreSQL API' : '';
+  const rows = pldPersonnelRowsForDisplay();
   const deptForSubtitle = pldApiBaseActive()
     ? Array.isArray(window.__pldDepartmentsApiRows)
       ? window.__pldDepartmentsApiRows.length
       : 0
     : DEPARTMENTS.length;
+  const deptOpts = (pldApiBaseActive() && Array.isArray(window.__pldDepartmentsApiRows)
+    ? window.__pldDepartmentsApiRows
+    : DEPARTMENTS
+  )
+    .map(function (d) {
+      const r = /** @type {Record<string, unknown>} */ (d);
+      const id = String(r.id != null ? r.id : '');
+      const name = String(r.name != null ? r.name : '');
+      const sel = (window.__pldPersonnelListDepartmentId || '') === id ? ' selected' : '';
+      return `<option value="${pldEscapeHtml(id)}"${sel}>${pldEscapeHtml(name)}</option>`;
+    })
+    .join('');
+  const selStat = window.__pldPersonnelListStatus || '';
+  const statOptsApi = [
+    ['', 'All statuses'],
+    ['active', 'Active'],
+    ['inactive', 'Inactive'],
+    ['on_leave', 'On leave'],
+  ]
+    .map(function (x) {
+      const v = x[0];
+      const lab = x[1];
+      const sel = selStat === v ? ' selected' : '';
+      return `<option value="${pldEscapeHtml(v)}"${sel}>${pldEscapeHtml(lab)}</option>`;
+    })
+    .join('');
+  const statOptsFs = [
+    ['', 'All statuses'],
+    ['available', 'Available'],
+    ['on_event', 'On Event'],
+    ['unavailable', 'Unavailable'],
+  ]
+    .map(function (x) {
+      const v = x[0];
+      const lab = x[1];
+      const sel = selStat === v ? ' selected' : '';
+      return `<option value="${pldEscapeHtml(v)}"${sel}>${pldEscapeHtml(lab)}</option>`;
+    })
+    .join('');
+  const searchVal = pldEscapeHtml(window.__pldPersonnelListSearch || '');
   return `
     ${personnelSourceBannerHtml()}
-    <div class="page-header">
-      <div><h1 class="page-title">Personnel</h1><p class="page-subtitle">${rows.length} crew members across ${deptForSubtitle} departments${apiNote}</p></div>
+    <div class="page-header pld-directory-page-header">
+      <div><h1 class="page-title">Personnel</h1><p class="page-subtitle">${rows.length} shown · ${deptForSubtitle} departments</p></div>
       <div class="page-actions">
         <button type="button" class="btn btn-secondary" onclick="openPersonnelCSVImportModal()">Import CSV</button>
-        <button type="button" class="btn btn-primary pld-add-crew-btn">+ Add Crew Member</button>
+        <button type="button" class="btn btn-primary pld-add-crew-btn">+ Add personnel</button>
       </div>
     </div>
-    <div class="schedule-controls" style="margin-bottom:16px;">
+    <div class="pld-directory-toolbar personnel-view-toolbar">
+    <div class="schedule-controls" style="margin-bottom:0;">
       <div class="view-toggle">
         <button class="view-toggle-btn ${personnelView === 'directory' ? 'active' : ''}" onclick="personnelView='directory'; renderPage('personnel');">Directory</button>
         <button class="view-toggle-btn ${personnelView === 'availability' ? 'active' : ''}" onclick="personnelView='availability'; renderPage('personnel');">Availability</button>
       </div>
-      <select class="filter-select"><option>All Departments</option>${(pldApiBaseActive() && Array.isArray(window.__pldDepartmentsApiRows) ? window.__pldDepartmentsApiRows : DEPARTMENTS).map(d => `<option>${/** @type {Record<string, unknown>} */ (d).name}</option>`).join('')}</select>
-      <select class="filter-select"><option>All Statuses</option>${pldApiBaseActive() ? '<option>Active</option><option>Inactive</option><option>On leave</option>' : '<option>Available</option><option>On Event</option><option>Unavailable</option>'}</select>
-      <input type="text" class="filter-input" placeholder="Search crew…" style="min-width:200px;">
+      <label class="form-label" for="pldPersonnelDeptFilter">Dept</label>
+      <select id="pldPersonnelDeptFilter" class="filter-select" onchange="onPersonnelDepartmentFilter(this.value)"><option value="">All departments</option>${deptOpts}</select>
+      <label class="form-label" for="pldPersonnelStatusFilter">Status</label>
+      <select id="pldPersonnelStatusFilter" class="filter-select" onchange="onPersonnelStatusFilter(this.value)">${pldApiBaseActive() ? statOptsApi : statOptsFs}</select>
+      <input type="search" class="filter-input" placeholder="Search…" style="min-width:200px;" value="${searchVal}"
+        oninput="onPersonnelSearchInput(this.value)">
+    </div>
     </div>
     <div class="stats-row" style="margin-bottom:20px;">
-      <div class="stat-card"><div class="stat-label">Total Crew</div><div class="stat-value">${rows.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Roster total</div><div class="stat-value">${rows.length}</div></div>
       ${pldApiBaseActive() ? `
       <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value" style="color:var(--accent-green);">${rows.filter((p) => p.status === 'active').length}</div></div>
       <div class="stat-card"><div class="stat-label">Inactive</div><div class="stat-value" style="color:var(--text-tertiary);">${rows.filter((p) => p.status === 'inactive').length}</div></div>
@@ -208,10 +411,16 @@ function renderPersonnel() {
       ${rows.map((p) => {
         const dot = personnelStatusDot(p);
         const lab = personnelStatusLabel(p);
+        const avInner = p.photo_url
+          ? `<img src="${pldEscapeHtml(p.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;">`
+          : p.initials;
+        const avStyle = p.photo_url
+          ? 'padding:0;overflow:hidden;background:#111827;'
+          : `background:${p.avatar};`;
         return `
-        <div class="personnel-card" data-pld-personnel-id="${pldPersonnelIdAttr(p.id)}" role="button" tabindex="0">
+        <div class="personnel-card" data-pld-personnel-id="${pldPersonnelIdAttr(p.id)}" role="button" tabindex="0" oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuPersonnelCard(event,this);">
           <div class="personnel-card-header">
-            <div class="personnel-avatar" style="background:${p.avatar};">${p.initials}</div>
+            <div class="personnel-avatar" style="${avStyle}">${avInner}</div>
             <div style="flex:1;min-width:0;"><div class="personnel-name">${p.name}</div><div class="personnel-role">${p.role}</div></div>
             <div style="width:8px;height:8px;border-radius:50%;background:${dot};" title="${lab}"></div>
           </div>
@@ -245,7 +454,7 @@ function pldEscapeHtml(s) {
 async function loadPersonnelAvailabilityGridFromApi() {
   const mount = document.getElementById('pldPersonnelAvailMount');
   if (!mount || typeof window.pldApiFetch !== 'function') return;
-  const crew = pldPersonnelCardRows().filter((c) => c.source === 'api').slice(0, 100);
+  const crew = pldPersonnelRowsForDisplay().filter((c) => c.source === 'api').slice(0, 100);
   if (!crew.length) {
     mount.innerHTML =
       '<p style="font-size:13px;color:var(--text-tertiary);">No API roster. Set API base and open Directory first.</p>';
@@ -273,7 +482,7 @@ async function loadPersonnelAvailabilityGridFromApi() {
     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
   );
   let html = `<div class="schedule-grid" style="grid-template-columns: 200px repeat(7, 1fr);">`;
-  html += `<div class="schedule-cell header">Crew Member</div>`;
+  html += `<div class="schedule-cell header">Personnel</div>`;
   for (let i = 0; i < 7; i++) {
     const iso = pldIsoDateLocal(weekDates[i]);
     const isToday = iso === today;
@@ -282,7 +491,10 @@ async function loadPersonnelAvailabilityGridFromApi() {
   for (const p of crew) {
     const bulk = byId.get(p.id);
     const deptLabel = p.deptName || getDepartment(p.dept).name;
-    html += `<div class="schedule-cell row-header" data-pld-personnel-id="${pldPersonnelIdAttr(p.id)}" style="cursor:pointer;" role="button" tabindex="0"><div style="display:flex;align-items:center;gap:8px;"><div style="width:24px;height:24px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;">${p.initials}</div><div><div style="font-size:12px;font-weight:500;" class="ep-clickable">${pldEscapeHtml(p.name)}</div><div style="font-size:10px;color:var(--text-tertiary);">${pldEscapeHtml(deptLabel)}</div></div></div></div>`;
+    const smAv = p.photo_url
+      ? `<div style="width:24px;height:24px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#111827;"><img src="${pldEscapeHtml(p.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover;"></div>`
+      : `<div style="width:24px;height:24px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;">${p.initials}</div>`;
+    html += `<div class="schedule-cell row-header" data-pld-personnel-id="${pldPersonnelIdAttr(p.id)}" style="cursor:pointer;" role="button" tabindex="0"><div style="display:flex;align-items:center;gap:8px;">${smAv}<div><div style="font-size:12px;font-weight:500;" class="ep-clickable">${pldEscapeHtml(p.name)}</div><div style="font-size:10px;color:var(--text-tertiary);">${pldEscapeHtml(deptLabel)}</div></div></div></div>`;
     for (let di = 0; di < 7; di++) {
       const iso = pldIsoDateLocal(weekDates[di]);
       const dayObj = bulk?.days?.find((d) => d.date === iso);
@@ -305,11 +517,11 @@ function renderPersonnelAvailability() {
   if (pldApiBaseActive() && window.__pldPersonnelApiRows === null) {
     return `<p style="font-size:13px;color:var(--text-tertiary);margin:0;">Loading roster…</p>`;
   }
-  const crewForGrid = pldPersonnelCardRows().slice(0, 100);
+  const crewForGrid = pldPersonnelRowsForDisplay().slice(0, 100);
   const weekDates = typeof getScheduleWeekDates === 'function' ? getScheduleWeekDates() : [];
   if (pldApiBaseActive()) {
     if (crewForGrid.length === 0) {
-      return `<p style="font-size:13px;color:var(--text-tertiary);margin:0;">No personnel in the PostgreSQL roster yet — add people via <strong>Add Crew Member</strong>, <strong>Import CSV</strong>, or the API.</p>`;
+      return `<p style="font-size:13px;color:var(--text-tertiary);margin:0;">No personnel in the PostgreSQL roster yet — add people via <strong>Add personnel</strong>, <strong>Import CSV</strong>, or the API.</p>`;
     }
     if (crewForGrid[0] && crewForGrid[0].source === 'api') {
       return `
@@ -324,7 +536,7 @@ function renderPersonnelAvailability() {
     }
   }
   if (!crewForGrid.length) {
-    return `<p style="font-size:13px;color:var(--text-tertiary);margin:0;">No crew in the roster.</p>`;
+    return `<p style="font-size:13px;color:var(--text-tertiary);margin:0;">No personnel in the roster.</p>`;
   }
   if (weekDates.length < 7) {
     return `<p style="font-size:13px;color:var(--text-tertiary);margin:0;">Week navigation is unavailable.</p>`;
@@ -341,7 +553,7 @@ function renderPersonnelAvailability() {
       <button class="btn btn-ghost btn-sm" onclick="scheduleWeekOffset=(scheduleWeekOffset||0)+1;renderPage('personnel');">Next Week →</button>
     </div>
     <div class="schedule-grid" style="grid-template-columns: 200px repeat(7, 1fr);">
-      <div class="schedule-cell header">Crew Member</div>`;
+      <div class="schedule-cell header">Personnel</div>`;
   for (let i = 0; i < 7; i++) {
     const iso = pldIsoDateLocal(weekDates[i]);
     const isToday = iso === today;
@@ -349,7 +561,10 @@ function renderPersonnelAvailability() {
   }
   for (const p of crewForGrid) {
     const deptLabel = p.deptName || getDepartment(p.dept).name;
-    html += `<div class="schedule-cell row-header" data-pld-personnel-id="${pldPersonnelIdAttr(p.id)}" style="cursor:pointer;" role="button" tabindex="0"><div style="display:flex;align-items:center;gap:8px;"><div style="width:24px;height:24px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;">${p.initials}</div><div><div style="font-size:12px;font-weight:500;" class="ep-clickable">${pldEscapeHtml(p.name)}</div><div style="font-size:10px;color:var(--text-tertiary);">${pldEscapeHtml(deptLabel)}</div></div></div></div>`;
+    const smAv = p.photo_url
+      ? `<div style="width:24px;height:24px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#111827;"><img src="${pldEscapeHtml(p.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover;"></div>`
+      : `<div style="width:24px;height:24px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;">${p.initials}</div>`;
+    html += `<div class="schedule-cell row-header" data-pld-personnel-id="${pldPersonnelIdAttr(p.id)}" style="cursor:pointer;" role="button" tabindex="0"><div style="display:flex;align-items:center;gap:8px;">${smAv}<div><div style="font-size:12px;font-weight:500;" class="ep-clickable">${pldEscapeHtml(p.name)}</div><div style="font-size:10px;color:var(--text-tertiary);">${pldEscapeHtml(deptLabel)}</div></div></div></div>`;
     for (let di = 0; di < 7; di++) {
       html += `<div class="schedule-cell"></div>`;
     }
@@ -359,12 +574,13 @@ function renderPersonnelAvailability() {
 }
 
 function openPersonnelDetail(personId) {
+  window.__pldPersonnelDetailPhotoFile = null;
   const needle = String(personId);
   const rows = pldPersonnelCardRows();
   const p = rows.find((x) => String(x.id) === needle);
   if (!p) {
     if (typeof showToast === 'function') {
-      showToast('Could not open that crew profile (list may have changed). Try refreshing.', 'warning');
+      showToast('Could not open that personnel profile (list may have changed). Try refreshing.', 'warning');
     }
     return;
   }
@@ -384,10 +600,18 @@ function openPersonnelDetail(personId) {
     p.source === 'api'
       ? `<div class="form-group" style="margin-top:4px;"><label class="form-label">Role</label><input type="text" id="pldPdRole" class="form-input" style="max-width:320px;" value="${pldEscapeHtml(p.role)}"></div>`
       : `<div style="font-size:13px;color:var(--text-tertiary);">${p.role}</div>`;
+  const headAv =
+    p.source === 'api' && p.photo_url
+      ? `<div id="pldPdAvatarSlot" style="width:56px;height:56px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#111827;"><img src="${pldEscapeHtml(p.photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`
+      : `<div id="pldPdAvatarSlot" style="width:56px;height:56px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:#fff;">${p.initials}</div>`;
+  const photoPick =
+    p.source === 'api'
+      ? `<div style="margin-top:8px;"><input type="file" id="pldPdPhotoInput" accept="image/*" style="display:none" onchange="handlePersonnelDetailPhotoPick(this)"><button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('pldPdPhotoInput').click()">Change photo</button></div>`
+      : '';
   const body = `
     ${p.source === 'api' ? `<input type="hidden" id="pldPdVersion" value="${p.version ?? 1}">` : ''}
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border-subtle);">
-      <div style="width:56px;height:56px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:#fff;">${p.initials}</div>
+      ${headAv}
       <div style="flex:1;">
         <div style="font-size:18px;font-weight:700;">${p.name}</div>
         ${apiRoleField}
@@ -395,6 +619,7 @@ function openPersonnelDetail(personId) {
           <span class="personnel-tag" style="background:${dept.color}20;color:${dept.color};">${dept.name}</span>
           <span class="personnel-tag" style="background:${statusDot}20;color:${statusDot};">${statusLab}</span>
         </div>
+        ${photoPick}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
@@ -404,6 +629,7 @@ function openPersonnelDetail(personId) {
     </div>
     ${assignedEvents.length > 0 ? `<div style="margin-bottom:20px;"><div style="font-size:12px;font-weight:600;color:var(--text-tertiary);margin-bottom:8px;">ASSIGNED EVENTS</div>${assignedEvents.map(ev => `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg-tertiary);margin-bottom:4px;cursor:pointer;" onclick="closeModal();setTimeout(()=>navigateToEvent('${ev.id}'),150)"><span class="phase-badge ${ev.phase}" style="font-size:10px;padding:2px 6px;">${PHASE_LABELS[ev.phase]}</span><div style="flex:1;font-weight:500;font-size:13px;">${ev.name}</div><div style="font-size:12px;color:var(--text-tertiary);">${formatDateShort(ev.startDate)}</div></div>`).join('')}</div>` : ''}
     ${personTravel.length > 0 ? `<div style="margin-bottom:20px;"><div style="font-size:12px;font-weight:600;color:var(--text-tertiary);margin-bottom:8px;">TRAVEL</div>${personTravel.map(tr => { const ev = EVENTS.find(e => e.id === tr.event); return `<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--bg-tertiary);margin-bottom:4px;"><span>${uiIcon({flight:'travelFlight',hotel:'travelHotel',self_drive:'travelSelfDrive'}[tr.type]||'travelLocation')}</span><div style="flex:1;"><div style="font-size:12px;font-weight:500;">${tr.from}${tr.to ? ' → '+tr.to : ''}</div><div style="font-size:11px;color:var(--text-tertiary);">${ev.name} · ${formatDate(tr.date)}</div></div><div style="font-size:12px;font-weight:500;">${formatCurrency(tr.cost)}</div></div>`; }).join('')}</div>` : ''}
+    ${p.source === 'api' ? '<div id="pldPdCustomFieldsMount"></div>' : ''}
     <div>
       <div style="font-size:12px;font-weight:600;color:var(--text-tertiary);margin-bottom:8px;">CONTACT & PREFERENCES</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -419,11 +645,18 @@ function openPersonnelDetail(personId) {
       ? `<button type="button" class="btn btn-primary" onclick="void pldSavePersonnelDetailFromModal('${p.id}')">Save</button>`
       : `<button type="button" class="btn btn-primary" onclick="if(typeof showToast==='function')showToast('Save is only persisted when the roster is loaded from the PostgreSQL API.','info');closeModal();">Save</button>`;
   openModal(p.name, body, `
-    <button class="btn btn-danger btn-sm" onclick="showConfirm('Remove Crew Member','Remove ${p.name.replace(/'/g, "\\'")} from the roster?',()=>{if(typeof showToast==='function')showToast('Remove is not wired for this roster source.','info');})">Remove</button>
+    <button class="btn btn-danger btn-sm" onclick="showConfirm('Remove from roster','Remove ${p.name.replace(/'/g, "\\'")} from the roster?',()=>{if(typeof showToast==='function')showToast('Remove is not wired for this roster source.','info');})">Remove</button>
     <div style="flex:1;"></div>
     <button class="btn btn-secondary" onclick="closeModal()">Close</button>
     ${saveBtn}
   `);
+  if (p.source === 'api' && typeof window.pldMountCustomFieldsInContainer === 'function') {
+    void window.pldMountCustomFieldsInContainer(
+      'pldPdCustomFieldsMount',
+      'personnel',
+      p.custom_fields && typeof p.custom_fields === 'object' ? p.custom_fields : {},
+    );
+  }
 }
 
 async function pldSavePersonnelDetailFromModal(personId) {
@@ -433,19 +666,54 @@ async function pldSavePersonnelDetailFromModal(personId) {
   const roleEl = document.getElementById('pldPdRole');
   const phoneEl = document.getElementById('pldPdPhone');
   const version = versionEl ? Number(versionEl.value) : 1;
+  const pendingPhoto = window.__pldPersonnelDetailPhotoFile;
+  let photo_document_id = undefined;
+  if (pendingPhoto instanceof File) {
+    const docId = await pldUploadPersonnelPhotoFile(pendingPhoto, personId);
+    if (!docId) return;
+    window.__pldPersonnelDetailPhotoFile = null;
+    const inp = document.getElementById('pldPdPhotoInput');
+    if (inp) inp.value = '';
+    photo_document_id = docId;
+  }
   const payload = {
     version,
     email: emailEl ? String(emailEl.value || '').trim() : '',
     role: roleEl ? String(roleEl.value || '').trim() : '',
     phone: phoneEl && phoneEl.value ? String(phoneEl.value).trim() : null,
   };
+  if (photo_document_id !== undefined) payload.photo_document_id = photo_document_id;
+  const cfMount = document.getElementById('pldPdCustomFieldsMount');
+  if (
+    cfMount &&
+    typeof window.loadCustomFieldsDefinitions === 'function' &&
+    typeof window.pldCollectCustomFieldValuesFromContainer === 'function'
+  ) {
+    try {
+      const defs = await window.loadCustomFieldsDefinitions('personnel');
+      payload.custom_fields = window.pldCollectCustomFieldValuesFromContainer(cfMount, defs);
+    } catch (_e) {
+      if (typeof showToast === 'function') showToast('Could not save custom fields', 'warning');
+    }
+  }
   const r = await window.pldApiFetch(`/api/v1/personnel/${personId}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
   if (!r.ok) {
-    const msg = r.body && r.body.errors && r.body.errors[0] && r.body.errors[0].message;
-    if (typeof showToast === 'function') showToast(msg || 'Save failed', 'error');
+    const err0 = r.body && r.body.errors && r.body.errors[0];
+    const msg = err0 && err0.message ? String(err0.message) : '';
+    if (typeof showToast === 'function') {
+      if (r.status === 403) {
+        showToast(
+          msg ||
+            'No permission to edit personnel (personnel:update). Sign out and back in after RBAC changes, or use an admin account.',
+          'error',
+        );
+      } else {
+        showToast(msg || 'Save failed', 'error');
+      }
+    }
     return;
   }
   if (typeof showToast === 'function') showToast('Saved', 'success');
@@ -480,13 +748,20 @@ async function pldSubmitNewPersonnelFromModal() {
     const n = Number(drEl.value);
     if (!Number.isNaN(n)) payload.day_rate = n;
   }
+  const pending = window.__pldPendingCrewPhotoFile;
+  if (pending instanceof File) {
+    const docId = await pldUploadPersonnelPhotoFile(pending, undefined);
+    if (!docId) return;
+    payload.photo_document_id = docId;
+  }
+  window.__pldPendingCrewPhotoFile = null;
   const r = await window.pldApiFetch('/api/v1/personnel', { method: 'POST', body: JSON.stringify(payload) });
   if (!r.ok) {
     const msg = r.body && r.body.errors && r.body.errors[0] && r.body.errors[0].message;
     if (typeof showToast === 'function') showToast(msg || 'Create failed', 'error');
     return;
   }
-  if (typeof showToast === 'function') showToast('Crew member created', 'success');
+  if (typeof showToast === 'function') showToast('Personnel record created', 'success');
   if (typeof closeModal === 'function') closeModal();
   await fetchPersonnelFromApiIfConfigured();
   if (typeof renderPage === 'function') renderPage('personnel');
@@ -501,7 +776,7 @@ function openAddPersonnelModal() {
       </div>
       <input type="file" id="crewPhotoInput" accept="image/*" style="display:none" onchange="handleCrewPhotoUpload(this)">
       <div class="photo-upload-info">
-        <h4>Crew Photo</h4>
+        <h4>Profile photo</h4>
         <p>Upload a headshot or badge photo. JPG, PNG up to 5 MB.</p>
         <button type="button" class="btn-upload" onclick="document.getElementById('crewPhotoInput').click()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -543,7 +818,7 @@ function openAddPersonnelModal() {
           <select class="form-select"><option value="">Select…</option><option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>XXL</option><option>XXXL</option></select>
         </div>
         <div class="form-group">
-          <label class="form-label">Crew Status</label>
+          <label class="form-label">Roster status</label>
           <select class="form-select"><option>Active</option><option>Inactive</option><option>On Leave</option><option>Prospect</option></select>
         </div>
       </div>
@@ -733,7 +1008,7 @@ function openAddPersonnelModal() {
   const addFooter = pldApiBaseActive()
     ? `<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button><button type="button" class="btn btn-primary" onclick="void pldSubmitNewPersonnelFromModal()">Save</button>`
     : `<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button><button type="button" class="btn btn-primary" onclick="if(typeof showToast==='function')showToast('Set pld-api-base to create personnel in PostgreSQL.','info')">Save</button>`;
-  openModal('Add Crew Member', body, addFooter);
+  openModal('Add personnel', body, addFooter);
   const modalEl = document.getElementById('modal');
   if (modalEl) modalEl.classList.add('modal-wide');
 }

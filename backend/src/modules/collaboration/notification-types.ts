@@ -7,6 +7,7 @@ export const NOTIFICATION_TYPES = [
   "travel_update",
   "document_generated",
   "comment",
+  "route_eta",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -24,6 +25,7 @@ export const DEFAULT_PREF_MATRIX: Record<NotificationType, ChannelDefaults> = {
   travel_update: { in_app: true, email: true, slack: false },
   document_generated: { in_app: true, email: false, slack: true },
   comment: { in_app: true, email: false, slack: true },
+  route_eta: { in_app: true, email: false, slack: false },
 };
 
 export function isNotificationType(s: string): s is NotificationType {

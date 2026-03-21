@@ -15,6 +15,9 @@ import {
   listClientsQuerySchema,
   updateClientSchema,
 } from "./schemas.js";
+import { writeAuditLog } from "../audit/service.js";
+import { removeFromIndex } from "../search/service.js";
+import { syncClientSearchRow } from "../search/sync-entity.js";
 import type { ClientResponse } from "@pld/shared";
 
 export const clientsRouter = Router();
@@ -68,6 +71,15 @@ clientsRouter.post(
         notes: body.notes ?? null,
         metadata: body.metadata ?? {},
       });
+      void writeAuditLog(pool, {
+        tenantId: req.ctx.tenantId,
+        userId: req.ctx.userId,
+        entityType: "client",
+        entityId: id,
+        action: "create",
+        changes: { after: { name: body.name } },
+      }).catch(() => undefined);
+      void syncClientSearchRow(pool, req.ctx.tenantId, id).catch(() => undefined);
       res.status(201).json(ok(row));
     } catch (e) {
       if (e instanceof ZodError) {
@@ -187,11 +199,21 @@ clientsRouter.delete(
       );
       return;
     }
-    const del = await repo.softDeleteClient(pool, req.ctx.tenantId, routeParam(req.params.id));
+    const cid = routeParam(req.params.id);
+    const del = await repo.softDeleteClient(pool, req.ctx.tenantId, cid);
     if (!del) {
       res.status(404).json(singleError("not_found", "Client not found", 404).body);
       return;
     }
+    void writeAuditLog(pool, {
+      tenantId: req.ctx.tenantId,
+      userId: req.ctx.userId,
+      entityType: "client",
+      entityId: cid,
+      action: "delete",
+      changes: {},
+    }).catch(() => undefined);
+    void removeFromIndex(pool, "clients", cid, req.ctx.tenantId).catch(() => undefined);
     res.json(ok(del));
   }),
 );

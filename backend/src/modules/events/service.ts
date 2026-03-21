@@ -383,6 +383,14 @@ export async function updateEvent(
     updated_by: userId,
     updated_at: updated.updated_at,
   });
+  void writeAuditLog(pool, {
+    tenantId,
+    userId,
+    entityType: "event",
+    entityId: id,
+    action: "update",
+    changes: { fields: Object.keys(patch), before: prev, after: patch },
+  }).catch(() => undefined);
   if (patch.start_date !== undefined || patch.end_date !== undefined) {
     domainBus.emit("event.datesChanged", {
       event_id: id,
@@ -421,6 +429,14 @@ export async function deleteEvent(
     deleted_by: userId,
     deleted_at: del.deleted_at,
   });
+  void writeAuditLog(pool, {
+    tenantId,
+    userId,
+    entityType: "event",
+    entityId: id,
+    action: "delete",
+    changes: { before: { name: existing.name } },
+  }).catch(() => undefined);
   return { ok: true, deleted: del };
 }
 
@@ -501,6 +517,14 @@ export async function cloneEvent(
     createdBy: userId,
   });
   emitEntityCustomFieldsUpdated({ tenantId, entityType: "event", entityId: event.id });
+  void writeAuditLog(pool, {
+    tenantId,
+    userId,
+    entityType: "event",
+    entityId: event.id,
+    action: "clone",
+    changes: { cloned_from: sourceId, name: event.name },
+  }).catch(() => undefined);
   return { ok: true, event, cloned_from: sourceId };
 }
 
@@ -547,6 +571,14 @@ export async function transitionPhase(
     changed_by: userId,
     changed_at: transitioned_at,
   });
+  void writeAuditLog(pool, {
+    tenantId,
+    userId,
+    entityType: "event",
+    entityId: id,
+    action: "phase_transition",
+    changes: { from, to: target },
+  }).catch(() => undefined);
   return {
     ok: true,
     event: updated,

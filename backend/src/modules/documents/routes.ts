@@ -7,6 +7,7 @@ import {
   asyncHandler,
   requestContextMiddleware,
   requirePermission,
+  resumeRequestContextMiddleware,
 } from "../../core/middleware.js";
 import * as svc from "./documents.service.js";
 import { LocalFileStorageAdapter } from "./storage.js";
@@ -56,6 +57,7 @@ documentsRouter.post(
   "/upload",
   requirePermission("documents:upload"),
   upload.single("file"),
+  resumeRequestContextMiddleware,
   asyncHandler(async (req, res) => {
     const file = req.file;
     if (!file?.buffer) {

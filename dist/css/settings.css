@@ -1,0 +1,201 @@
+﻿
+/* ============================================
+   Settings Page
+   ============================================ */
+.settings-section {
+  margin-bottom: 32px;
+}
+
+.settings-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-row:last-child { border-bottom: none; }
+
+.settings-row-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.settings-row-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* Toggle Switch */
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toggle.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  top: 2px;
+  left: 2px;
+  transition: transform var(--transition-fast);
+}
+
+.toggle.active::after { transform: translateX(18px); }
+
+/* ============================================
+   Drag Handle
+   ============================================ */
+.drag-handle {
+  cursor: grab;
+  color: var(--text-tertiary);
+  padding: 4px;
+}
+
+.drag-handle:active { cursor: grabbing; }
+
+.drag-handle svg { width: 14px; height: 14px; }
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-hover) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   Popup Panels (Notifications, Profile)
+   ============================================ */
+.popup-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  z-index: 80;
+  animation: modalIn 150ms ease;
+}
+
+.popup-panel.profile-popup {
+  width: 260px;
+}
+
+.popup-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-weight: 500;
+}
+
+.popup-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.topbar-right {
+  position: relative;
+}
+
+/* Small toggles in notification settings table */
+.toggle[style*="width:32px"] {
+  width: 32px !important;
+  height: 18px !important;
+}
+
+.toggle[style*="width:32px"]::after {
+  width: 12px;
+  height: 12px;
+  top: 2px;
+  left: 2px;
+}
+
+.toggle[style*="width:32px"].active::after {
+  transform: translateX(14px);
+}
+
+/* Conflict banner */
+.conflict-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--accent-red);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* Danger button */
+.btn-danger {
+  background: var(--accent-red);
+  color: #fff;
+  border: 1px solid var(--accent-red);
+}
+.btn-danger:hover {
+  opacity: 0.85;
+}
+
+/* Form textarea */
+.form-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+/* kbd tag */
+kbd {
+  display: inline-block;
+  padding: 3px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  font-family: monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+

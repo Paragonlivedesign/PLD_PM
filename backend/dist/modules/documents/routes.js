@@ -3,7 +3,7 @@ import { Router } from "express";
 import multer from "multer";
 import { ok } from "../../core/envelope.js";
 import { HttpError } from "../../core/http-error.js";
-import { asyncHandler, requestContextMiddleware, requirePermission, } from "../../core/middleware.js";
+import { asyncHandler, requestContextMiddleware, requirePermission, resumeRequestContextMiddleware, } from "../../core/middleware.js";
 import * as svc from "./documents.service.js";
 import { LocalFileStorageAdapter } from "./storage.js";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44,7 +44,7 @@ function parseTags(raw) {
 }
 export const documentsRouter = Router();
 documentsRouter.use(requestContextMiddleware);
-documentsRouter.post("/upload", requirePermission("documents:upload"), upload.single("file"), asyncHandler(async (req, res) => {
+documentsRouter.post("/upload", requirePermission("documents:upload"), upload.single("file"), resumeRequestContextMiddleware, asyncHandler(async (req, res) => {
     const file = req.file;
     if (!file?.buffer) {
         throw new HttpError(400, "VALIDATION", "file is required", "file");

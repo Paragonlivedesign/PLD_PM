@@ -10,10 +10,11 @@
   global.PLD_DATA_FROM_REST = false;
 
   function mapClientApiToUi(c) {
+    const idRaw = c.id != null ? c.id : c.client_id != null ? c.client_id : '';
     const contactName = c.contact_name != null ? String(c.contact_name) : '';
     const contactEmail = c.contact_email != null ? String(c.contact_email) : '';
     return {
-      id: c.id,
+      id: idRaw !== '' && idRaw != null ? String(idRaw) : '',
       name: c.name,
       contact: contactName,
       email: contactEmail,
@@ -317,7 +318,11 @@
       console.warn('[pld-hydrate] departments', e);
     }
     try {
-      const pr = await global.pldApiFetch('/api/v1/personnel?limit=100&sort_by=name&sort_order=asc', {
+      const pq =
+        typeof global.pldBuildPersonnelListQueryString === 'function'
+          ? global.pldBuildPersonnelListQueryString()
+          : 'limit=100&sort_by=name&sort_order=asc';
+      const pr = await global.pldApiFetch('/api/v1/personnel?' + pq, {
         method: 'GET',
       });
       if (pr.ok && pr.body && Array.isArray(pr.body.data)) personnelRows = pr.body.data;
@@ -363,44 +368,44 @@
 
     TRUCK_ROUTES.length = 0;
     try {
-      const evIds = EVENTS.map(function (e) {
-        return e.id;
+      const rr = await global.pldApiFetch('/api/v1/truck-routes?limit=500', {
+        method: 'GET',
       });
-      await Promise.all(
-        evIds.map(async function (eid) {
-          const rr = await global.pldApiFetch(
-            '/api/v1/truck-routes/' + encodeURIComponent(eid),
-            { method: 'GET' },
-          );
-          if (!rr.ok || !rr.body || !rr.body.data || !rr.body.data.routes) return;
-          rr.body.data.routes.forEach(function (r) {
-            const wps = Array.isArray(r.waypoints)
-              ? r.waypoints.map(function (w) {
-                  return w && w.location ? String(w.location) : '';
-                })
-              : [];
-            TRUCK_ROUTES.push({
-              id: r.id,
-              truck_id: r.truck_id,
-              event_id: eid,
-              origin: r.origin || '',
-              destination: r.destination || '',
-              waypoints: wps.filter(Boolean),
-              distance_miles: r.distance_miles != null ? Number(r.distance_miles) : 0,
-              driver: r.driver_name || null,
-              status: r.status || 'planned',
-            });
+      if (rr.ok && rr.body && Array.isArray(rr.body.data)) {
+        rr.body.data.forEach(function (r) {
+          const wps = Array.isArray(r.waypoints)
+            ? r.waypoints.map(function (w) {
+                return w && w.location ? String(w.location) : '';
+              })
+            : [];
+          TRUCK_ROUTES.push({
+            id: r.id,
+            truck_id: r.truck_id,
+            event_id: r.event_id,
+            origin: r.origin || '',
+            destination: r.destination || '',
+            waypoints: wps.filter(Boolean),
+            distance_miles: r.distance_miles != null ? Number(r.distance_miles) : 0,
+            driver: r.driver_name || null,
+            status: r.status || 'planned',
+            departure_datetime: r.departure_datetime || null,
+            estimated_arrival: r.estimated_arrival || null,
+            route_geometry: r.route_geometry || null,
+            traffic_aware: !!r.traffic_aware,
+            driver_share_url: r.driver_share_url || null,
+            schedule_conflict_hint: r.schedule_conflict_hint || null,
           });
-        }),
-      );
+        });
+      }
     } catch (e) {
       console.warn('[pld-hydrate] truck routes', e);
     }
 
     TRAVEL_RECORDS.length = 0;
+    var travelApiRows = [];
     try {
-      const trows = await fetchTravelAllPages();
-      trows.forEach(function (tr) {
+      travelApiRows = await fetchTravelAllPages();
+      travelApiRows.forEach(function (tr) {
         TRAVEL_RECORDS.push(mapTravelApiToUi(tr));
       });
     } catch (e) {
@@ -408,20 +413,27 @@
     }
     if (typeof global.__pldGlobalTravelList !== 'undefined') {
       global.__pldGlobalTravelList = {
-        rows: TRAVEL_RECORDS.map(function (r) {
+        rows: travelApiRows.map(function (tr) {
           return {
-            travel_type: r.type,
-            departure_location: r.from,
-            arrival_location: r.to,
-            personnel_name: '',
-            event_name: '',
-            departure_datetime: r.date,
-            status: r.status,
-            cost: r.cost,
+            id: tr.id,
+            travel_type: tr.travel_type,
+            departure_location: tr.departure_location,
+            arrival_location: tr.arrival_location,
+            personnel_name: tr.personnel_name,
+            event_name: tr.event_name,
+            event_id: tr.event_id,
+            personnel_id: tr.personnel_id,
+            departure_datetime: tr.departure_datetime,
+            status: tr.status,
+            cost: tr.cost != null && tr.cost !== '' ? Number(tr.cost) : null,
+            accommodation: tr.accommodation || null,
           };
         }),
         meta: {},
       };
+      if (typeof global.pldApplyRoomingBlocksFromTravelRows === 'function') {
+        global.pldApplyRoomingBlocksFromTravelRows(travelApiRows);
+      }
     }
 
     DOCUMENTS.length = 0;
@@ -791,7 +803,13 @@
    * @returns {Promise<boolean>}
    */
   global.pldDeleteClientViaApi = async function pldDeleteClientViaApi(id) {
-    const res = await global.pldApiFetch('/api/v1/clients/' + encodeURIComponent(id), {
+    const cid = String(id == null ? '' : id).trim();
+    if (!cid) {
+      if (typeof showToast === 'function')
+        showToast('Cannot delete client (missing id). Try refreshing the list.', 'error');
+      return false;
+    }
+    const res = await global.pldApiFetch('/api/v1/clients/' + encodeURIComponent(cid), {
       method: 'DELETE',
     });
     if (res.status === 409) {
@@ -808,7 +826,7 @@
       return false;
     }
     const pos = CLIENTS.findIndex(function (c) {
-      return c.id === id;
+      return c.id === cid;
     });
     if (pos >= 0) CLIENTS.splice(pos, 1);
     return true;

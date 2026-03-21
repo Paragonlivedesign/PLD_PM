@@ -16,4 +16,10 @@ if (!fs.existsSync(dist)) {
 
 fs.cpSync(path.join(root, 'js'), path.join(dist, 'js'), { recursive: true });
 fs.copyFileSync(path.join(root, 'data.js'), path.join(dist, 'data.js'));
-console.log('[copy-static-to-dist] copied js/ and data.js → dist/');
+const cssSrc = path.join(root, 'css');
+const cssDst = path.join(dist, 'css');
+if (fs.existsSync(cssSrc)) {
+  fs.mkdirSync(cssDst, { recursive: true });
+  fs.cpSync(cssSrc, cssDst, { recursive: true });
+}
+console.log('[copy-static-to-dist] copied js/, data.js, css/ → dist/');

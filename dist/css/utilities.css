@@ -1,0 +1,179 @@
+﻿/* ============================================
+   Financial Charts / Bars
+   ============================================ */
+.budget-bar-container {
+  margin-bottom: 12px;
+}
+
+.budget-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.budget-bar-label span:first-child { font-weight: 500; }
+.budget-bar-label span:last-child { color: var(--text-tertiary); }
+
+.budget-bar {
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.budget-bar-fill {
+  height: 100%;
+  border-radius: 0;
+  transition: width var(--transition-slow);
+}
+
+.budget-bar-fill.blue { background: var(--accent-blue); }
+.budget-bar-fill.green { background: var(--accent-green); }
+.budget-bar-fill.amber { background: var(--accent-amber); }
+.budget-bar-fill.red { background: var(--accent-red); }
+.budget-bar-fill.purple { background: var(--accent-purple); }
+
+/* ============================================
+   Document List
+   ============================================ */
+.doc-list { display: flex; flex-direction: column; gap: 8px; }
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.doc-item:hover { border-color: var(--border-default); background: var(--bg-hover); }
+
+.doc-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.doc-icon svg { width: 18px; height: 18px; }
+.doc-icon.pdf { background: var(--accent-red-muted); color: var(--accent-red); }
+.doc-icon.sheet { background: var(--accent-green-muted); color: var(--accent-green); }
+.doc-icon.doc { background: var(--accent-blue-muted); color: var(--accent-blue); }
+
+.doc-info { flex: 1; min-width: 0; }
+.doc-name { font-weight: 500; font-size: 13px; }
+.doc-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+
+.doc-actions { display: flex; gap: 4px; }
+
+/* ============================================
+   Travel Cards
+   ============================================ */
+.travel-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.travel-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.travel-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.travel-route .travel-arrow { color: var(--text-tertiary); font-size: 16px; }
+
+.travel-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.travel-detail-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.travel-detail-value {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ============================================
+   Tabs
+   ============================================ */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+  gap: 0;
+}
+
+.tab {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: inherit;
+}
+
+.tab:hover { color: var(--text-primary); }
+.tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+
+/* ============================================
+   Filters / Select
+   ============================================ */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-select, .filter-input {
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.filter-select:focus, .filter-input:focus { border-color: var(--accent-blue); }
+
+.filter-select option { background: var(--bg-secondary); }
+

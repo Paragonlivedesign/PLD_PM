@@ -16,6 +16,8 @@ declare global {
   namespace Express {
     interface Request {
       ctx: RequestContext;
+      /** Set by `requestContextMiddleware` so routes after multer can restore AsyncLocalStorage. */
+      pldResolvedPermissions?: Set<string>;
     }
   }
 }

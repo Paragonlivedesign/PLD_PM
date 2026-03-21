@@ -31,7 +31,25 @@ async function attachTenantContext(req, res, next, tenantId, userId, permissions
         return;
     }
     req.ctx = { tenantId, userId };
+    req.pldResolvedPermissions = permissions;
     runWithContext({ tenantId, userId, permissions }, () => next());
+}
+/**
+ * Multer (and some body parsers) resume on a later tick, dropping AsyncLocalStorage.
+ * Call after `upload.single(...)` so handlers using `getContext()` still work.
+ */
+export function resumeRequestContextMiddleware(req, res, next) {
+    const ctx = req.ctx;
+    const permissions = req.pldResolvedPermissions;
+    if (!ctx || !permissions) {
+        res.status(500).json({
+            data: null,
+            meta: null,
+            errors: [{ code: "INTERNAL", message: "Request context not initialized" }],
+        });
+        return;
+    }
+    runWithContext({ tenantId: ctx.tenantId, userId: ctx.userId, permissions }, () => next());
 }
 /**
  * JWT Bearer (preferred) or dev headers / defaults (`resolveTenantUserIds`).

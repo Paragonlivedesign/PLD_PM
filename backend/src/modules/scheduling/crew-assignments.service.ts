@@ -12,6 +12,12 @@ import {
 import { getEventByIdInternal } from "../events/index.js";
 import { getVenueById } from "../venues/repository.js";
 import { findDepartmentById } from "../tenancy/department.repository.js";
+import { getTenantConfig } from "../tenancy/tenancy.service.js";
+import {
+  tenantBufferWindowsEnabledResolved,
+  tenantConflictDetectionEnabledResolved,
+  tenantDriveTimeBufferHoursResolved,
+} from "../tenancy/tenant-settings.js";
 import { getDayRate, getPerDiem, getPersonnelById } from "../personnel/index.js";
 import {
   getConflictById,
@@ -110,6 +116,9 @@ async function createSoftConflictsForCrewPairwise(
   newRow: DbCrewAssignmentRow,
   overlapping: DbCrewAssignmentRow[],
 ): Promise<ConflictSummary[]> {
+  const cfg = await getTenantConfig(tenantId);
+  if (!tenantConflictDetectionEnabledResolved(cfg)) return [];
+  if (!tenantBufferWindowsEnabledResolved(cfg)) return [];
   const summaries: ConflictSummary[] = [];
   for (const ex of overlapping) {
     const { start, end } = overlapRange(
@@ -170,6 +179,9 @@ async function refreshDriveTimeConflictsForPersonnel(
   personnelId: string,
   personnelName: string,
 ): Promise<ConflictSummary[]> {
+  const cfg = await getTenantConfig(tenantId);
+  if (!tenantConflictDetectionEnabledResolved(cfg)) return [];
+  const bufferExtra = tenantDriveTimeBufferHoursResolved(cfg);
   await resolveActiveDriveConflictsForPersonnel(client, tenantId, personnelId);
   const rows = await listAllActiveCrewAssignmentsForPersonnel(client, tenantId, personnelId);
   rows.sort((a, b) => {
@@ -201,7 +213,7 @@ async function refreshDriveTimeConflictsForPersonnel(
       continue;
     }
     const km = haversineKm(v1.latitude, v1.longitude, v2.latitude, v2.longitude);
-    const needH = driveHoursForDistanceKm(km);
+    const needH = driveHoursForDistanceKm(km) + bufferExtra;
     if (gapH >= needH) continue;
     const assignments: ConflictAssignmentRef[] = [crewRef(first), crewRef(second)];
     const e1 = first.event_id < second.event_id ? first.event_id : second.event_id;

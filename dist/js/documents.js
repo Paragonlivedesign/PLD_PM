@@ -589,13 +589,20 @@ async function pldOpenDocPreviewAsync(docId) {
       const ev = d.event_id ? EVENTS.find((e) => e.id === d.event_id) : null;
       const evName = ev ? ev.name : '—';
       const safeName = String(d.name).replace(/'/g, "\\'");
+      const dlEsc = dl.replace(/"/g, '&quot;');
+      const isPdf = String(d.mime_type || '').toLowerCase().includes('pdf');
+      const pdfFrame =
+        dl && isPdf
+          ? `<div style="margin-bottom:16px;"><iframe title="PDF preview" src="${dlEsc}#toolbar=0" style="width:100%;height:min(55vh,520px);border:1px solid var(--border-default);border-radius:var(--radius-md);background:var(--bg-tertiary);"></iframe><p style="font-size:11px;color:var(--text-tertiary);margin-top:8px;">Inline preview uses the signed URL; open in a new tab if the browser blocks embedding.</p></div>`
+          : '';
       const body = `
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border-subtle);">
       <div style="font-size:28px;">${uiIcon('docPreview')}</div>
       <div><div style="font-size:16px;font-weight:600;">${d.name}</div><div style="font-size:12px;color:var(--text-tertiary);">${evName} · v${d.version} · ${formatDocBytes(d.size_bytes)}</div></div>
     </div>
+    ${pdfFrame}
     <div style="background:var(--bg-tertiary);padding:24px;margin-bottom:16px;">
-      <a class="btn btn-primary" href="${dl.replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer">Open / download</a>
+      <a class="btn btn-primary" href="${dlEsc}" target="_blank" rel="noopener noreferrer">Open / download</a>
       <p style="font-size:12px;color:var(--text-tertiary);margin-top:12px;">Link expires in ~15 minutes. Refresh from the list if needed.</p>
     </div>
   `;

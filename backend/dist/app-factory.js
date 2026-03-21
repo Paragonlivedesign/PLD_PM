@@ -31,6 +31,7 @@ import { authProtectedRouter, authPublicRouter } from "./modules/auth/index.js";
 import { auditRouter } from "./modules/audit/index.js";
 import { platformRouter } from "./modules/platform/index.js";
 import { SHARED_VERSION } from "@pld/shared";
+import { getTruckRoutePublicByToken } from "./modules/trucks/trucks.service.js";
 function parseCorsOrigins() {
     const raw = process.env.CORS_ORIGIN || "http://localhost:5173,http://127.0.0.1:5000,http://localhost:5000";
     const list = raw
@@ -69,6 +70,14 @@ export function buildApp() {
             errors: null,
         });
     });
+    app.get("/api/v1/truck-routes/public/:token", asyncHandler(async (req, res) => {
+        const token = String(req.params.token ?? "");
+        const r = await getTruckRoutePublicByToken(token);
+        if (!r.ok) {
+            throw new HttpError(404, "NOT_FOUND", "Not found");
+        }
+        res.status(200).json(ok(r.data, null));
+    }));
     app.use("/api/v1/auth", authPublicRouter);
     app.use("/api/v1/auth", authProtectedRouter);
     /** Cross-tenant platform admin (Bearer + PLD_PLATFORM_ADMIN_EMAILS); no tenant AsyncLocalStorage */

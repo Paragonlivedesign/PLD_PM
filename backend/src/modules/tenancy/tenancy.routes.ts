@@ -1,11 +1,14 @@
 import { Router } from "express";
+import { getContext } from "../../core/context.js";
 import { ok } from "../../core/envelope.js";
+import { HttpError } from "../../core/http-error.js";
 import {
   asyncHandler,
   requestContextMiddleware,
   requireAnyPermission,
 } from "../../core/middleware.js";
 import * as svc from "./tenancy.service.js";
+import { resetTenantOperationalData } from "./tenant-reset.service.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,6 +38,21 @@ tenantRouter.put(
   asyncHandler(async (req, res) => {
     const data = await svc.updateTenantForApi(req.body as Record<string, unknown>);
     res.status(200).json(ok(data));
+  }),
+);
+
+/** Irreversibly deletes operational data for the current tenant (users and roles kept). */
+tenantRouter.post(
+  "/reset-data",
+  requireAnyPermission("tenancy.settings.edit"),
+  asyncHandler(async (req, res) => {
+    const body = req.body as { confirm?: unknown };
+    if (String(body?.confirm ?? "") !== "RESET") {
+      throw new HttpError(400, "VALIDATION", 'Request body must include "confirm": "RESET"', "confirm");
+    }
+    const ctx = getContext();
+    const out = await resetTenantOperationalData(ctx.tenantId);
+    res.status(200).json(ok({ reset: true, tenant_id: ctx.tenantId, deleted_steps: out.deleted_tables }));
   }),
 );
 

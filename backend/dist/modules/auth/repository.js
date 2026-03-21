@@ -1,3 +1,9 @@
+export async function findRoleIdByTenantAndName(pool, tenantId, roleName) {
+    const r = await pool.query(`SELECT id FROM roles
+     WHERE tenant_id = $1 AND lower(name) = lower($2) AND deleted_at IS NULL
+     LIMIT 1`, [tenantId, roleName]);
+    return r.rows[0]?.id ?? null;
+}
 export async function findTenantBySlug(pool, slug) {
     const r = await pool.query(`SELECT id, status FROM tenants WHERE lower(slug) = lower($1) LIMIT 1`, [slug]);
     const row = r.rows[0];

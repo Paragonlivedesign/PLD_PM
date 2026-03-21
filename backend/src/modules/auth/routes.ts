@@ -7,6 +7,14 @@ import * as svc from "./service.js";
 export const authPublicRouter = Router();
 
 authPublicRouter.post(
+  "/register",
+  asyncHandler(async (req, res) => {
+    const data = await svc.register(req.body as Record<string, string>);
+    res.status(201).json(ok(data));
+  }),
+);
+
+authPublicRouter.post(
   "/login",
   asyncHandler(async (req, res) => {
     const data = await svc.login(req.body as Record<string, string>);

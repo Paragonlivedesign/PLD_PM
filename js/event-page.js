@@ -391,13 +391,19 @@ function renderEventTrucksTab(ev, client, venue) {
         ${eventRoutes.length > 0 ? eventRoutes.map(r => {
           const t = getTruck(r.truck_id);
           const path = [r.origin].concat(r.waypoints || []).concat(r.destination);
+          const dep = r.departure_datetime ? String(r.departure_datetime).slice(0, 16).replace('T', ' ') : '';
+          const eta = r.estimated_arrival ? String(r.estimated_arrival).slice(0, 16).replace('T', ' ') : '';
+          const times = dep || eta ? `<div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">${dep ? 'Depart ' + dep : ''}${dep && eta ? ' · ' : ''}${eta ? 'ETA ' + eta : ''}</div>` : '';
+          const hint = r.schedule_conflict_hint ? `<div style="font-size:11px;color:var(--accent-amber);margin-top:4px;">${String(r.schedule_conflict_hint)}</div>` : '';
           return `<div class="card" style="padding:12px 16px;margin-bottom:8px;display:grid;grid-template-columns:1fr 200px;gap:16px;align-items:center;">
             <div>
               <div style="font-weight:600;font-size:13px;">${t ? t.name : 'Unassigned'}</div>
               <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">${path.join(' → ')}</div>
-              <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">${r.distance_miles} mi · ${r.driver || 'Driver TBD'}</div>
+              <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px;">${r.distance_miles || '—'} mi · ${r.driver || 'Driver TBD'}</div>
+              ${times}
+              ${hint}
             </div>
-            <div style="background:var(--bg-tertiary);border-radius:var(--radius-sm);height:60px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-tertiary);">Route map</div>
+            <div style="background:var(--bg-tertiary);border-radius:var(--radius-sm);height:60px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-tertiary);">${r.route_geometry ? 'Geometry computed' : 'Route map'}</div>
           </div>`;
         }).join('') : '<div style="padding:16px;color:var(--text-tertiary);font-size:13px;">No routes for this event. Add routes from the Trucks page or when assigning trucks.</div>'}
       </div>

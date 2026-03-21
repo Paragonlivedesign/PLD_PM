@@ -68,24 +68,14 @@ function renderTravelAll() {
 
 function renderTravelRooming() {
   const rooms =
-    typeof PLD_DATA_FROM_REST !== 'undefined' && PLD_DATA_FROM_REST ? [] : [
-    { event: 'UFC 310', hotel: 'Bellagio, Las Vegas', checkIn: '2026-02-16', checkOut: '2026-02-18', rooms: [
-      { crew: 'Mike Thompson', room: '1412', type: 'King', share: '—' },
-      { crew: 'Sarah Lee', room: '1414', type: 'Double', share: 'Katie Young' },
-      { crew: 'Ryan Taylor', room: '1416', type: 'King', share: '—' },
-      { crew: 'Nick Foster', room: '1418', type: 'Double', share: 'Dan Roberts' },
-    ]},
-    { event: 'NBA All-Star', hotel: 'Ritz-Carlton, Atlanta', checkIn: '2026-02-13', checkOut: '2026-02-17', rooms: [
-      { crew: 'Jake Wilson', room: '802', type: 'King', share: '—' },
-      { crew: 'Emma Davis', room: '804', type: 'Double', share: 'Jessica Brown' },
-      { crew: 'Chris Martinez', room: '806', type: 'King', share: '—' },
-      { crew: 'Alex Johnson', room: '808', type: 'Suite', share: '—' },
-    ]}
-  ];
+    typeof window !== 'undefined' && window.__pldGlobalRoomingBlocks && window.__pldGlobalRoomingBlocks.length
+      ? window.__pldGlobalRoomingBlocks
+      : [];
   if (!rooms.length) {
     return `
     <div class="empty-state" style="padding:32px;">
-      <p style="color:var(--text-tertiary);margin:0;">No demo rooming blocks when using API-backed data. Use travel records and event rooming exports when available.</p>
+      <p style="color:var(--text-tertiary);margin:0 0 10px;">No rooming data yet. Lists are built from <strong>hotel accommodation</strong> on travel records (confirmation / room type / dates).</p>
+      <p style="color:var(--text-tertiary);margin:0;font-size:13px;">Add or edit travel with accommodation on an event, or open this page while connected to the API so travel can load.</p>
     </div>`;
   }
   return `

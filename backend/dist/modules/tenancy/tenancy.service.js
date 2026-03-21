@@ -6,7 +6,7 @@ import * as deptRepo from "./department.repository.js";
 import * as tenantRepo from "./tenant.repository.js";
 import { emitDepartmentCreated, emitDepartmentDeleted, emitDepartmentReordered, emitDepartmentUpdated, emitTenantConfigUpdated, } from "./tenancy.events.js";
 import { tenantCacheInvalidate, tenantCacheGet, tenantCacheSet } from "./tenant-cache.js";
-import { mergeSettingsJson, parsePartialTenantSettings, resolveTenantSettings, } from "./tenant-settings.js";
+import { mergeSettingsJson, parsePartialTenantSettings, resolveTenantSettings, sanitizeTenantSettingsFeaturesInPlace, } from "./tenant-settings.js";
 import * as pRepo from "../personnel/personnel.repository.js";
 export async function getCurrentTenant(tenantId) {
     const row = await loadTenantRow(tenantId);
@@ -113,6 +113,7 @@ export async function updateTenantForApi(body) {
             throw new HttpError(400, "VALIDATION", msg, "settings");
         }
         nextSettings = mergeSettingsJson(nextSettings, partial);
+        sanitizeTenantSettingsFeaturesInPlace(nextSettings);
     }
     const updated = await tenantRepo.updateTenant(pool, ctx.tenantId, {
         name: body.name !== undefined ? name : undefined,

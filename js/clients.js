@@ -19,6 +19,13 @@ function pldClientsAttrEsc(s) {
   return pldClientsHtmlEsc(s);
 }
 
+/** Safe for HTML `data-*` attributes (ids, UUIDs). */
+function pldClientsDataAttrEsc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;');
+}
+
 /** JSON string literal safe inside a double-quoted HTML onclick. */
 function pldClientsJsArgForOnclick(s) {
   return JSON.stringify(String(s)).replace(/"/g, '&quot;');
@@ -219,8 +226,20 @@ window.pldSubmitClientEditor = async function pldSubmitClientEditor() {
   if (typeof renderPage === 'function') renderPage('clients');
 };
 
+/** Prefer this over inline onclick strings so UUIDs are never mangled by HTML quoting. */
+function pldConfirmDeleteClientFromData(btn) {
+  const raw = btn && btn.getAttribute ? btn.getAttribute('data-client-id') : null;
+  const id = raw == null ? '' : String(raw).trim();
+  pldConfirmDeleteClient(id);
+}
+
 function pldConfirmDeleteClient(clientId) {
-  const id = String(clientId);
+  const id = String(clientId == null ? '' : clientId).trim();
+  if (!id) {
+    if (typeof showToast === 'function')
+      showToast('Cannot delete client (missing id). Try refreshing the list.', 'error');
+    return;
+  }
   const c = CLIENTS.find(function (x) {
     return x.id === id;
   });
@@ -501,46 +520,87 @@ window.pldRunDeleteClient = async function pldRunDeleteClient(id) {
   if (typeof renderPage === 'function') renderPage('clients');
 };
 
+function openClientEditorModalFromData(btn) {
+  const raw = btn && btn.getAttribute ? btn.getAttribute('data-client-id') : null;
+  const id = raw == null ? '' : String(raw).trim();
+  openClientEditorModal(id);
+}
+
+function pldOpenClientContactsModalFromData(btn) {
+  const raw = btn && btn.getAttribute ? btn.getAttribute('data-client-id') : null;
+  const id = raw == null ? '' : String(raw).trim();
+  void window.pldOpenClientContactsModal(id);
+}
+
+function pldContextMenuClientRow(domEvent, rowEl) {
+  const raw = rowEl && rowEl.getAttribute ? rowEl.getAttribute('data-client-id') : null;
+  const id = raw == null ? '' : String(raw).trim();
+  if (!id || typeof window.pldShowContextMenu !== 'function') return;
+  const items = [];
+  if (pldClientsUseRestApi()) {
+    items.push({
+      label: 'Contacts…',
+      action: function () {
+        void window.pldOpenClientContactsModal(id);
+      },
+    });
+  }
+  items.push({ label: 'Edit', action: function () { openClientEditorModal(id); } });
+  items.push({
+    label: 'Delete',
+    danger: true,
+    action: function () {
+      pldConfirmDeleteClient(id);
+    },
+  });
+  window.pldShowContextMenu(domEvent.clientX, domEvent.clientY, items);
+}
+
 function renderClients() {
   const apiErr =
     typeof window.__pldClientsApiLoadError !== 'undefined' && window.__pldClientsApiLoadError
       ? String(window.__pldClientsApiLoadError)
       : '';
   const errBanner = apiErr
-    ? `<div class="card" style="margin-bottom:16px;padding:12px 16px;border-left:3px solid var(--accent-amber);background:var(--bg-tertiary);font-size:13px;color:var(--text-secondary);">${pldClientsHtmlEsc(apiErr)}</div>`
+    ? `<div class="pld-directory-error-banner">${pldClientsHtmlEsc(apiErr)}</div>`
     : '';
   const rows = pldClientsRowsForDisplay();
   const searchVal = pldClientsHtmlEsc(window.__pldClientsListSearch || '');
 
   const tableBody =
     rows.length === 0
-      ? `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-tertiary);font-size:13px;">No clients match. Add one or adjust search.</td></tr>`
+      ? `<tr><td colspan="6" class="pld-empty-state" style="border:none;">No clients match. Add one or adjust search.</td></tr>`
       : rows
           .map(function (c) {
             const r = /** @type {Record<string, unknown>} */ (c);
-            const cid = String(r.id);
-            const ec = pldClientsEventCount(cid);
-            return `<tr>
+            const cid = String(r.id == null ? '' : r.id).trim();
+            const ec = cid ? pldClientsEventCount(cid) : 0;
+            const dataAttr = cid ? ` data-client-id="${pldClientsDataAttrEsc(cid)}"` : '';
+            return `<tr${dataAttr} oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuClientRow(event, this);">
           <td><strong>${pldClientsHtmlEsc(String(r.name || ''))}</strong></td>
           <td style="color:var(--text-tertiary);">${pldClientsHtmlEsc(pldClientsContactDisplay(c))}</td>
           <td style="color:var(--text-tertiary);">${pldClientsHtmlEsc(pldClientsEmailDisplay(c))}</td>
           <td style="color:var(--text-tertiary);">${pldClientsHtmlEsc(pldClientsPhoneDisplay(c))}</td>
           <td style="text-align:center;">${ec}</td>
-          <td>
+          <td class="pld-directory-actions">
             ${
-              pldClientsUseRestApi()
-                ? `<button type="button" class="btn btn-ghost btn-sm" onclick="void pldOpenClientContactsModal(${pldClientsJsArgForOnclick(cid)})">Contacts</button>`
+              pldClientsUseRestApi() && cid
+                ? `<button type="button" class="btn btn-ghost btn-sm" data-client-id="${pldClientsDataAttrEsc(cid)}" onclick="void pldOpenClientContactsModalFromData(this)">Contacts</button>`
                 : ''
             }
-            <button type="button" class="btn btn-ghost btn-sm" onclick="openClientEditorModal(${pldClientsJsArgForOnclick(cid)})">Edit</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="pldConfirmDeleteClient(${pldClientsJsArgForOnclick(cid)})">Delete</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-client-id="${cid ? pldClientsDataAttrEsc(cid) : ''}" onclick="openClientEditorModalFromData(this)" ${cid ? '' : 'disabled'}>Edit</button>
+            ${
+              cid
+                ? `<button type="button" class="btn btn-ghost btn-sm" data-client-id="${pldClientsDataAttrEsc(cid)}" onclick="pldConfirmDeleteClientFromData(this)">Delete</button>`
+                : '<span class="form-hint" style="font-size:12px;">No id</span>'
+            }
           </td>
         </tr>`;
           })
           .join('');
 
   return `
-    <div class="page-header">
+    <div class="page-header pld-directory-page-header">
       <div>
         <h1 class="page-title">Clients</h1>
         <p class="page-subtitle">Organizations you produce events for — contacts, billing, and notes</p>
@@ -548,20 +608,21 @@ function renderClients() {
       <button type="button" class="btn btn-primary" onclick="openClientEditorModal('')">+ Add client</button>
     </div>
     ${errBanner}
-    <div class="card" style="padding:16px;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <label class="form-label" style="margin:0;flex:0 0 auto;">Search</label>
-        <input type="search" class="form-input" style="max-width:320px;flex:1;min-width:180px;" placeholder="Name, contact, email…" value="${searchVal}"
+    <div class="pld-directory-toolbar">
+      <div class="pld-directory-toolbar-inner">
+        <label class="form-label" for="pldClientsSearch">Search</label>
+        <input type="search" id="pldClientsSearch" class="form-input" style="max-width:320px;flex:1;min-width:180px;" placeholder="Name, contact, email…" value="${searchVal}"
           oninput="onClientsSearchInput(this.value)">
+        <span class="pld-directory-meta">${rows.length} shown</span>
       </div>
       ${
         pldClientsUseRestApi()
-          ? '<p class="form-hint" style="margin:8px 0 0;">Search uses the API when connected.</p>'
-          : '<p class="form-hint" style="margin:8px 0 0;">Local mode: filters the list in your browser.</p>'
+          ? '<p class="pld-directory-api-hint">Search uses the API when connected.</p>'
+          : '<p class="pld-directory-api-hint">Local mode: filters the list in your browser.</p>'
       }
     </div>
-    <div class="table-wrap">
-      <table class="data-table">
+    <div class="table-wrap pld-data-table-wrap pld-directory-table-wrap">
+      <table class="data-table pld-directory-table">
         <thead>
           <tr>
             <th>Organization</th>
@@ -569,7 +630,7 @@ function renderClients() {
             <th>Email</th>
             <th>Phone</th>
             <th style="text-align:center;">Events</th>
-            <th>Actions</th>
+            <th class="pld-directory-actions">Actions</th>
           </tr>
         </thead>
         <tbody>${tableBody}</tbody>

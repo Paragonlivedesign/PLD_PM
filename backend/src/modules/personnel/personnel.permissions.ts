@@ -17,6 +17,7 @@ export function projectPersonnel(
   }
   if (!permissions.has("personnel:view_custom")) {
     out.metadata = {};
+    out.custom_fields = {};
   }
   return out;
 }

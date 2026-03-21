@@ -187,6 +187,7 @@ export type TruckResponse = {
   inspection_expiry: string | null;
   notes: string | null;
   metadata: Record<string, unknown>;
+  custom_fields: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   retired_at: string | null;

@@ -61,6 +61,30 @@ describe("auth HTTP API", () => {
     await pool?.end();
   });
 
+  it("POST /api/v1/auth/register creates viewer + returns tokens (CP0.3)", async () => {
+    if (skip) return;
+    const email = `reg-${Date.now()}@demo.local`;
+    const reg = await request(app).post("/api/v1/auth/register").send({
+      email,
+      password: "Password1!ok",
+      tenant_slug: "demo",
+      first_name: "Reg",
+      last_name: "User",
+    });
+    expect(reg.status).toBe(201);
+    expect(reg.body.data?.access_token).toBeTruthy();
+    expect(reg.body.data?.user?.email).toBe(email);
+    expect(reg.body.data?.user?.role).toBe("viewer");
+
+    const login = await request(app).post("/api/v1/auth/login").send({
+      email,
+      password: "Password1!ok",
+      tenant_slug: "demo",
+    });
+    expect(login.status).toBe(200);
+    expect(login.body.data?.access_token).toBeTruthy();
+  });
+
   it("POST /api/v1/auth/login + GET /me Bearer", async () => {
     if (skip) return;
     const login = await request(app)

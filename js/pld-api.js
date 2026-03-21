@@ -67,8 +67,15 @@
       body = { errors: [{ code: 'parse', message: 'Invalid JSON' }] };
     }
     if (r.status === 401 && hadBearer && !_retry && typeof window.pldAuthTryRefresh === 'function') {
-      var next = await window.pldAuthTryRefresh();
-      if (next) return pldApiFetch(path, options, true);
+      var nextTok = await window.pldAuthTryRefresh();
+      if (nextTok) return pldApiFetch(path, options, true);
+      /* Refresh failed and usually cleared session — retry once with dev headers (no Bearer). */
+      if (
+        typeof window.pldAuthGetAccessToken === 'function' &&
+        !window.pldAuthGetAccessToken()
+      ) {
+        return pldApiFetch(path, options, true);
+      }
     }
     /** JWT tenant no longer in DB (e.g. DB reset) — clear session and retry once with dev headers. */
     if (r.status === 403 && hadBearer && !_retry) {
@@ -125,8 +132,14 @@
       body = { errors: [{ code: 'parse', message: 'Invalid JSON' }] };
     }
     if (r.status === 401 && hadBearer && !_retry && typeof window.pldAuthTryRefresh === 'function') {
-      var next = await window.pldAuthTryRefresh();
-      if (next) return pldApiFormFetch(path, formData, options, true);
+      var nextTok = await window.pldAuthTryRefresh();
+      if (nextTok) return pldApiFormFetch(path, formData, options, true);
+      if (
+        typeof window.pldAuthGetAccessToken === 'function' &&
+        !window.pldAuthGetAccessToken()
+      ) {
+        return pldApiFormFetch(path, formData, options, true);
+      }
     }
     return { ok: r.ok, status: r.status, body };
   };

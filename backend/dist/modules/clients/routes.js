@@ -8,6 +8,9 @@ import { routeParam } from "../../core/route-params.js";
 import { createContactsNestedRouter } from "../contacts/nested-routes.js";
 import * as repo from "./repository.js";
 import { createClientSchema, listClientsQuerySchema, updateClientSchema, } from "./schemas.js";
+import { writeAuditLog } from "../audit/service.js";
+import { removeFromIndex } from "../search/service.js";
+import { syncClientSearchRow } from "../search/sync-entity.js";
 export const clientsRouter = Router();
 clientsRouter.use("/:clientId/contacts", createContactsNestedRouter({
     parentType: "client_organization",
@@ -45,6 +48,15 @@ clientsRouter.post("/", requirePermission("clients:create"), asyncHandler(async 
             notes: body.notes ?? null,
             metadata: body.metadata ?? {},
         });
+        void writeAuditLog(pool, {
+            tenantId: req.ctx.tenantId,
+            userId: req.ctx.userId,
+            entityType: "client",
+            entityId: id,
+            action: "create",
+            changes: { after: { name: body.name } },
+        }).catch(() => undefined);
+        void syncClientSearchRow(pool, req.ctx.tenantId, id).catch(() => undefined);
         res.status(201).json(ok(row));
     }
     catch (e) {
@@ -122,10 +134,20 @@ clientsRouter.delete("/:id", requirePermission("clients:delete"), asyncHandler(a
         res.status(409).json(singleError("conflict", "Client has events; cannot delete", 409).body);
         return;
     }
-    const del = await repo.softDeleteClient(pool, req.ctx.tenantId, routeParam(req.params.id));
+    const cid = routeParam(req.params.id);
+    const del = await repo.softDeleteClient(pool, req.ctx.tenantId, cid);
     if (!del) {
         res.status(404).json(singleError("not_found", "Client not found", 404).body);
         return;
     }
+    void writeAuditLog(pool, {
+        tenantId: req.ctx.tenantId,
+        userId: req.ctx.userId,
+        entityType: "client",
+        entityId: cid,
+        action: "delete",
+        changes: {},
+    }).catch(() => undefined);
+    void removeFromIndex(pool, "clients", cid, req.ctx.tenantId).catch(() => undefined);
     res.json(ok(del));
 }));

@@ -33,10 +33,20 @@ export function mapPersonnelRow(r: Record<string, unknown>): PersonnelRowInterna
       ? (r.emergency_contact as PersonnelResponse["emergency_contact"])
       : null,
     metadata: (r.metadata as Record<string, unknown>) ?? {},
+    custom_fields:
+      r.custom_fields && typeof r.custom_fields === "object" && !Array.isArray(r.custom_fields)
+        ? (r.custom_fields as Record<string, unknown>)
+        : {},
     created_at: new Date(String(r.created_at)).toISOString(),
     updated_at: new Date(String(r.updated_at)).toISOString(),
     deactivated_at: r.deactivated_at ? new Date(String(r.deactivated_at)).toISOString() : null,
     version: Number(r.version),
+    photo_document_id:
+      r.photo_document_id != null && String(r.photo_document_id) !== ""
+        ? String(r.photo_document_id)
+        : null,
+    photo_url: null,
+    photo_url_expires_at: null,
   };
 }
 
@@ -61,15 +71,18 @@ export async function insertPersonnel(
     status: string;
     emergency_contact: unknown | null;
     metadata: Record<string, unknown>;
+    custom_fields?: Record<string, unknown>;
+    photo_document_id?: string | null;
   },
 ): Promise<PersonnelRowInternal> {
   const q = `
     INSERT INTO personnel (
       id, tenant_id, user_id, first_name, last_name, email, phone, department_id,
       role, employment_type, skills, day_rate_amount, day_rate_currency,
-      per_diem_amount, per_diem_currency, status, emergency_contact, metadata
+      per_diem_amount, per_diem_currency, status, emergency_contact, metadata, custom_fields,
+      photo_document_id
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18::jsonb
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18::jsonb,$19::jsonb,$20
     )
     RETURNING id
   `;
@@ -92,6 +105,8 @@ export async function insertPersonnel(
     row.status,
     row.emergency_contact,
     row.metadata,
+    row.custom_fields ?? {},
+    row.photo_document_id ?? null,
   ]);
   const full = await findPersonnelById(db, row.tenant_id, row.id, true);
   if (!full) throw new Error("insertPersonnel: row not found after insert");
@@ -271,6 +286,8 @@ export async function updatePersonnel(
   if ("status" in patch) add("status", patch.status);
   if ("emergency_contact" in patch) add("emergency_contact", patch.emergency_contact);
   if ("metadata" in patch) add("metadata", patch.metadata);
+  if ("custom_fields" in patch) add("custom_fields", patch.custom_fields);
+  if ("photo_document_id" in patch) add("photo_document_id", patch.photo_document_id);
 
   if (sets.length === 0) {
     return findPersonnelById(db, tenantId, id, true);

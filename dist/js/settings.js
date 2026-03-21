@@ -200,32 +200,103 @@ function renderSettingsAppearance() {
   `;
 }
 
+/** After `pldRefreshTenantShell`, sync General tab inputs from `window.__pldTenant`. */
+function pldHydrateSettingsGeneralInputs() {
+  if (typeof settingsTab === 'undefined' || settingsTab !== 'general') return;
+  const sn = pldSettingsGeneralSnapshot();
+  const n = document.getElementById('pldSettingsTenantName');
+  if (n) n.value = sn.name;
+  const tz = document.getElementById('pldSettingsTimezone');
+  if (tz) tz.value = sn.default_timezone;
+  const cur = document.getElementById('pldSettingsCurrency');
+  if (cur) cur.value = sn.default_currency;
+  const buf = document.getElementById('pldSettingsDriveBuffer');
+  if (buf) buf.value = String(sn.drive_time_buffer_hours);
+  const tc = document.getElementById('pldSettingsToggleConflict');
+  if (tc) {
+    tc.classList.toggle('active', sn.conflict_on);
+    tc.setAttribute('aria-checked', String(sn.conflict_on));
+  }
+  const tb = document.getElementById('pldSettingsToggleBuffer');
+  if (tb) {
+    tb.classList.toggle('active', sn.buffer_on);
+    tb.setAttribute('aria-checked', String(sn.buffer_on));
+  }
+  const ta = document.getElementById('pldSettingsToggleAudit');
+  if (ta) {
+    ta.classList.toggle('active', sn.audit_on);
+    ta.setAttribute('aria-checked', String(sn.audit_on));
+  }
+}
+
+function pldSettingsGeneralSnapshot() {
+  const t = typeof window !== 'undefined' ? window.__pldTenant : null;
+  const s = t && t.settings && typeof t.settings === 'object' ? t.settings : {};
+  const f = s.features && typeof s.features === 'object' ? s.features : {};
+  const sched = f.scheduling && typeof f.scheduling === 'object' ? f.scheduling : {};
+  const de = f.data_export && typeof f.data_export === 'object' ? f.data_export : {};
+  const tz = typeof s.default_timezone === 'string' ? s.default_timezone : 'America/New_York';
+  const cur = typeof s.default_currency === 'string' ? s.default_currency : 'USD';
+  const drive =
+    typeof sched.drive_time_buffer_hours === 'number' && !Number.isNaN(sched.drive_time_buffer_hours)
+      ? sched.drive_time_buffer_hours
+      : 4;
+  return {
+    name: t && t.name != null ? String(t.name) : '',
+    default_timezone: tz,
+    default_currency: cur,
+    conflict_on: sched.conflict_detection_enabled !== false,
+    buffer_on: sched.buffer_windows_enabled !== false,
+    drive_time_buffer_hours: drive,
+    audit_on: de.audit_logging_enabled !== false,
+  };
+}
+
 function renderSettingsGeneral() {
-  const tenantName =
-    typeof window !== 'undefined' && window.__pldTenant && window.__pldTenant.name
-      ? String(window.__pldTenant.name).replace(/"/g, '&quot;')
-      : '';
+  const sn = pldSettingsGeneralSnapshot();
+  const api =
+    typeof PLD_API_BASE === 'string' && PLD_API_BASE.trim() !== '' && typeof pldApiFetch === 'function';
+  const tenantName = sn.name.replace(/"/g, '&quot;');
+  const tzSel = (val, label) =>
+    `<option value="${pldSettingsEsc(val)}"${sn.default_timezone === val ? ' selected' : ''}>${label}</option>`;
+  const curSel = (code, label) =>
+    `<option value="${code}"${sn.default_currency === code ? ' selected' : ''}>${label}</option>`;
+  const tConflict = sn.conflict_on ? 'toggle active' : 'toggle';
+  const tBuffer = sn.buffer_on ? 'toggle active' : 'toggle';
+  const tAudit = sn.audit_on ? 'toggle active' : 'toggle';
   return `
     <div class="grid-2"><div>
       <div class="settings-section"><h3 class="settings-section-title">Organization</h3>
-        <p style="font-size:12px;color:var(--text-tertiary);margin:-4px 0 12px;">Name is stored on the server (<code style="font-size:11px;">PUT /api/v1/tenant</code>). Requires <code style="font-size:11px;">tenancy.settings.edit</code>.</p>
+        <p style="font-size:12px;color:var(--text-tertiary);margin:-4px 0 12px;">Saved to the server (<code style="font-size:11px;">PUT /api/v1/tenant</code>). View: <code style="font-size:11px;">tenancy.settings.view</code>. Edit: <code style="font-size:11px;">tenancy.settings.edit</code>.</p>
         <div class="form-group"><label class="form-label">Company Name</label><input type="text" class="form-input" id="pldSettingsTenantName" value="${tenantName}" autocomplete="organization" /></div>
-        <button type="button" class="btn btn-primary btn-sm" onclick="submitSettingsTenantProfile()">Save company name</button>
-        <div class="form-group"><label class="form-label">Default Timezone</label><select class="form-select"><option>America/New_York (EST)</option><option>America/Chicago (CST)</option><option>America/Denver (MST)</option><option>America/Los_Angeles (PST)</option></select></div>
-        <div class="form-group"><label class="form-label">Currency</label><select class="form-select"><option selected>USD ($)</option><option>EUR</option><option>GBP</option></select></div>
+        <div class="form-group"><label class="form-label">Default Timezone</label><select class="form-select" id="pldSettingsTimezone">
+          ${tzSel('America/New_York', 'America/New_York (ET)')}
+          ${tzSel('America/Chicago', 'America/Chicago (CT)')}
+          ${tzSel('America/Denver', 'America/Denver (MT)')}
+          ${tzSel('America/Los_Angeles', 'America/Los_Angeles (PT)')}
+          ${tzSel('UTC', 'UTC')}
+        </select></div>
+        <div class="form-group"><label class="form-label">Currency</label><select class="form-select" id="pldSettingsCurrency">
+          ${curSel('USD', 'USD ($)')}
+          ${curSel('EUR', 'EUR (€)')}
+          ${curSel('GBP', 'GBP (£)')}
+        </select></div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="void submitSettingsGeneral()">Save changes</button>
       </div>
       <div class="settings-section"><h3 class="settings-section-title">Scheduling</h3>
-        <div class="settings-row"><div><div class="settings-row-label">Conflict Detection</div><div class="settings-row-desc">Detect double-bookings and drive-time violations</div></div><div class="toggle active" onclick="this.classList.toggle('active');showToast(this.classList.contains('active')?'Conflict detection enabled':'Conflict detection disabled','success')"></div></div>
-        <div class="settings-row"><div><div class="settings-row-label">Buffer Windows</div><div class="settings-row-desc">Minimum buffer between assignments</div></div><div class="toggle active" onclick="this.classList.toggle('active');showToast(this.classList.contains('active')?'Buffer windows enabled':'Buffer windows disabled','success')"></div></div>
-        <div class="settings-row"><div><div class="settings-row-label">Drive Time Buffer (hours)</div><div class="settings-row-desc">Gap for ground transport between venues</div></div><input type="number" class="form-input" value="4" style="width:80px;"></div>
+        <div class="settings-row"><div><div class="settings-row-label">Conflict Detection</div><div class="settings-row-desc">Detect double-bookings and drive-time violations</div></div><div class="${tConflict}" id="pldSettingsToggleConflict" role="switch" aria-checked="${sn.conflict_on}" onclick="this.classList.toggle('active');this.setAttribute('aria-checked',this.classList.contains('active'))"></div></div>
+        <div class="settings-row"><div><div class="settings-row-label">Buffer Windows</div><div class="settings-row-desc">Minimum buffer between assignments (double-booking soft conflicts)</div></div><div class="${tBuffer}" id="pldSettingsToggleBuffer" role="switch" aria-checked="${sn.buffer_on}" onclick="this.classList.toggle('active');this.setAttribute('aria-checked',this.classList.contains('active'))"></div></div>
+        <div class="settings-row"><div><div class="settings-row-label">Drive Time Buffer (hours)</div><div class="settings-row-desc">Extra hours beyond computed drive time between consecutive gigs</div></div><input type="number" class="form-input" id="pldSettingsDriveBuffer" value="${sn.drive_time_buffer_hours}" min="0" max="168" step="0.5" style="width:80px;"></div>
       </div>
     </div><div>
       <div class="settings-section"><h3 class="settings-section-title">Data & Export</h3>
-        <div class="settings-row"><div><div class="settings-row-label">Audit Logging</div><div class="settings-row-desc">Record all data changes</div></div><div class="toggle active" onclick="this.classList.toggle('active');showToast(this.classList.contains('active')?'Audit logging enabled':'Audit logging disabled','success')"></div></div>
-        <div class="settings-row"><div><div class="settings-row-label">Auto-backup</div><div class="settings-row-desc">Daily database backup</div></div><div class="toggle active" onclick="this.classList.toggle('active');showToast(this.classList.contains('active')?'Auto-backup enabled':'Auto-backup disabled','success')"></div></div>
+        <div class="settings-row"><div><div class="settings-row-label">Audit Logging</div><div class="settings-row-desc">Record data changes in audit log tables</div></div><div class="${tAudit}" id="pldSettingsToggleAudit" role="switch" aria-checked="${sn.audit_on}" onclick="this.classList.toggle('active');this.setAttribute('aria-checked',this.classList.contains('active'))"></div></div>
+        <p style="font-size:12px;color:var(--text-tertiary);margin:0;">Database backups are configured by deployment / ops (not from this screen).</p>
       </div>
       <div class="settings-section"><h3 class="settings-section-title">Danger Zone</h3>
-        <button class="btn btn-danger" onclick="showConfirm('Reset All Data','This will reset all events, crew, and financial data. This cannot be undone.',()=>showToast('All data reset','error'))">Reset All Data</button>
+        <p style="font-size:12px;color:var(--text-tertiary);margin:-4px 0 10px;">Permanently deletes <strong>all</strong> operational data for this tenant in PostgreSQL (events, clients, personnel, documents, travel, …). <strong>Users and roles are kept</strong> so you can sign in again. Requires <code style="font-size:11px;">tenancy.settings.edit</code> and <code style="font-size:11px;">POST /api/v1/tenant/reset-data</code> with body <code style="font-size:11px;">{ "confirm": "RESET" }</code>.</p>
+        <p style="font-size:11px;color:var(--text-tertiary);margin:0 0 10px;">Production APIs must set <code style="font-size:11px;">PLD_ALLOW_TENANT_DATA_RESET=1</code> or the request returns 403.</p>
+        <button type="button" class="btn btn-danger" onclick="openTenantResetConfirmModal()" ${api ? '' : 'disabled title="Configure API base and sign in"'}>Reset all data</button>
       </div>
     </div></div>
   `;
@@ -672,7 +743,7 @@ window.pldSettingsWorkforcePayrollExport = async function pldSettingsWorkforcePa
   if (d) console.info('[payroll export]', d);
 };
 
-async function submitSettingsTenantProfile() {
+async function submitSettingsGeneral() {
   const el = document.getElementById('pldSettingsTenantName');
   const name = el ? String(el.value || '').trim() : '';
   if (!name) {
@@ -683,20 +754,110 @@ async function submitSettingsTenantProfile() {
     showToast('API client not loaded', 'warning');
     return;
   }
+  const tzEl = document.getElementById('pldSettingsTimezone');
+  const curEl = document.getElementById('pldSettingsCurrency');
+  const bufEl = document.getElementById('pldSettingsDriveBuffer');
+  const tz = tzEl ? String(tzEl.value || '').trim() : 'America/New_York';
+  const cur = curEl ? String(curEl.value || '').trim().toUpperCase().slice(0, 3) : 'USD';
+  let driveBuf = bufEl ? Number(bufEl.value) : 4;
+  if (!Number.isFinite(driveBuf)) driveBuf = 4;
+  driveBuf = Math.min(168, Math.max(0, driveBuf));
+  const tConflict = document.getElementById('pldSettingsToggleConflict');
+  const tBuffer = document.getElementById('pldSettingsToggleBuffer');
+  const tAudit = document.getElementById('pldSettingsToggleAudit');
+  const settings = {
+    default_timezone: tz,
+    default_currency: cur,
+    features: {
+      scheduling: {
+        conflict_detection_enabled: !!(tConflict && tConflict.classList.contains('active')),
+        buffer_windows_enabled: !!(tBuffer && tBuffer.classList.contains('active')),
+        drive_time_buffer_hours: driveBuf,
+      },
+      data_export: {
+        audit_logging_enabled: !!(tAudit && tAudit.classList.contains('active')),
+      },
+    },
+  };
   const res = await window.pldApiFetch('/api/v1/tenant', {
     method: 'PUT',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, settings }),
   });
   if (res.ok && res.body && res.body.data) {
     window.__pldTenant = res.body.data;
     if (typeof window.pldRefreshTenantShell === 'function') await window.pldRefreshTenantShell();
-    showToast('Company name saved', 'success');
+    showToast('Settings saved', 'success');
   } else {
     const msg =
       (res.body && res.body.errors && res.body.errors[0] && res.body.errors[0].message) ||
       'Could not save (check permissions)';
-    showToast(msg, 'warning');
+    if (res.status === 403 && typeof showToast === 'function') {
+      showToast(msg || 'Missing tenancy.settings.edit permission.', 'warning');
+    } else {
+      showToast(msg, 'warning');
+    }
   }
+}
+
+function openTenantResetConfirmModal() {
+  if (typeof openModal !== 'function') return;
+  const body =
+    '<p style="color:var(--text-secondary);font-size:13px;margin:0 0 12px;line-height:1.45;">This removes <strong>all</strong> business data for this tenant from the database. Users, roles, and sign-in remain. This cannot be undone.</p>' +
+    '<p style="font-size:12px;color:var(--text-tertiary);margin:0 0 10px;">Type <strong>RESET</strong> to confirm.</p>' +
+    '<input type="text" class="form-input" id="pldTenantResetConfirm" placeholder="RESET" autocomplete="off" />';
+  openModal(
+    'Reset all data',
+    body,
+    '<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button><button type="button" class="btn btn-danger" onclick="void submitTenantResetAllData()">Erase data</button>',
+  );
+}
+
+async function submitTenantResetAllData() {
+  const input = document.getElementById('pldTenantResetConfirm');
+  const typed = input && input.value != null ? String(input.value).trim() : '';
+  if (typed !== 'RESET') {
+    if (typeof showToast === 'function') showToast('Type RESET to confirm', 'warning');
+    return;
+  }
+  if (typeof window.pldApiFetch !== 'function') {
+    if (typeof showToast === 'function') showToast('API not available', 'error');
+    return;
+  }
+  const res = await window.pldApiFetch('/api/v1/tenant/reset-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: 'RESET' }),
+  });
+  if (typeof closeModal === 'function') closeModal();
+  const err0 = res.body && res.body.errors && res.body.errors[0];
+  if (!res.ok || err0) {
+    const msg = err0 && err0.message ? String(err0.message) : 'Reset failed';
+    if (typeof showToast === 'function') showToast(msg, 'error');
+    return;
+  }
+  if (typeof showToast === 'function') showToast('Tenant data cleared', 'success');
+  if (typeof window.pldTryBootstrapFromSql === 'function') {
+    try {
+      await window.pldTryBootstrapFromSql();
+    } catch (e) {
+      console.warn('[tenant-reset] rehydrate', e);
+    }
+  }
+  if (typeof window.pldFetchGlobalTravelIfConfigured === 'function') {
+    try {
+      await window.pldFetchGlobalTravelIfConfigured();
+    } catch (e) {
+      void e;
+    }
+  }
+  if (typeof window.pldRefreshTenantShell === 'function') {
+    try {
+      await window.pldRefreshTenantShell();
+    } catch (e) {
+      void e;
+    }
+  }
+  if (typeof renderPage === 'function') renderPage('settings');
 }
 
 // ============================================

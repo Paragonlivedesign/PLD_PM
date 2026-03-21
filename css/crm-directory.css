@@ -1,0 +1,124 @@
+/* ============================================
+   CRM / directory pages — shared list + toolbar
+   Used by Clients, Venues, Vendors, Personnel
+   ============================================ */
+
+.pld-directory-toolbar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.pld-directory-toolbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pld-directory-toolbar-inner .form-label {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pld-directory-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+
+.pld-directory-api-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+.pld-data-table-wrap.pld-directory-table-wrap {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: var(--bg-secondary);
+  overflow: auto;
+  max-height: min(70vh, 900px);
+}
+
+.pld-directory-table.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-tertiary);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.pld-directory-table.data-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.pld-directory-table.data-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.pld-directory-table .pld-directory-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pld-empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  border: 1px dashed var(--border-default);
+  background: var(--bg-tertiary);
+}
+
+.pld-empty-state-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.pld-directory-error-banner {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--accent-amber);
+  background: var(--bg-tertiary);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pld-directory-error-banner.is-fatal {
+  border-left-color: var(--accent-red);
+}
+
+.pld-directory-page-header .page-subtitle {
+  max-width: 52ch;
+}
+
+.personnel-view-toolbar.pld-directory-toolbar {
+  margin-bottom: 16px;
+}
+
+.personnel-view-toolbar .schedule-controls {
+  margin-bottom: 0;
+  width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.personnel-view-toolbar .filter-select,
+.personnel-view-toolbar .filter-input {
+  min-height: 36px;
+}

@@ -1,6 +1,20 @@
 import type pg from "pg";
 import type { UserRow } from "./types.js";
 
+export async function findRoleIdByTenantAndName(
+  pool: pg.Pool,
+  tenantId: string,
+  roleName: string,
+): Promise<string | null> {
+  const r = await pool.query<{ id: string }>(
+    `SELECT id FROM roles
+     WHERE tenant_id = $1 AND lower(name) = lower($2) AND deleted_at IS NULL
+     LIMIT 1`,
+    [tenantId, roleName],
+  );
+  return r.rows[0]?.id ?? null;
+}
+
 export async function findTenantBySlug(
   pool: pg.Pool,
   slug: string,

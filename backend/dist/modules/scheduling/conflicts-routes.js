@@ -32,5 +32,6 @@ conflictsRouter.get("/", asyncHandler(async (req, res) => {
         cursor: result.nextCursor,
         has_more: result.hasMore,
         total_count: result.total,
+        ...(result.conflictDetectionDisabled ? { conflict_detection_disabled: true } : {}),
     }));
 }));

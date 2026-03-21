@@ -44,6 +44,7 @@ function navigateTo(page) {
     account: 'Account',
     'invite-user': 'Invite user',
     'platform-admin': 'Master admin',
+    search: 'Search',
   };
 
   if (page === 'event' && selectedEventId) {

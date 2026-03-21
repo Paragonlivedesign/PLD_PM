@@ -8,6 +8,7 @@ import {
   recipientsForSchedulingConflict,
   recipientsForTravelUpdate,
   recipientsForTruckAssignment,
+  recipientsForRouteEta,
 } from "./notification-recipients.js";
 import { sendNotification } from "./notifications.service.js";
 
@@ -256,6 +257,44 @@ export function registerNotificationBusListeners(pool: Pool): void {
         "Travel record updated",
         "A travel record was updated.",
         { event_id: x.event_id, travel_id: x.travel_id },
+      );
+    });
+  });
+
+  domainBus.on("route.delay_threshold_exceeded", (p: unknown) => {
+    const x = p as {
+      tenant_id?: string;
+      event_id?: string;
+      route_id?: string;
+      truck_id?: string;
+      delay_minutes?: number;
+      threshold_minutes?: number;
+      estimated_arrival?: string;
+    };
+    if (!x.tenant_id || !x.event_id || !x.route_id) return;
+    fire(pool, async () => {
+      const recipients = await recipientsForRouteEta(
+        pool,
+        x.tenant_id!,
+        x.event_id!,
+        "",
+      );
+      if (recipients.length === 0) return;
+      await notifyUsers(
+        pool,
+        x.tenant_id!,
+        recipients,
+        "route_eta",
+        "Truck route delayed",
+        `Route ETA slipped by ${x.delay_minutes ?? "?"} min (threshold ${x.threshold_minutes ?? "?"} min).`,
+        {
+          event_id: x.event_id,
+          route_id: x.route_id,
+          truck_id: x.truck_id,
+          delay_minutes: x.delay_minutes,
+          threshold_minutes: x.threshold_minutes,
+          estimated_arrival: x.estimated_arrival,
+        },
       );
     });
   });

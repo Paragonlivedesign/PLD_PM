@@ -66,7 +66,7 @@ function submitCloneEventForm() {
   closeModal();
 }
 
-function openCloneEventModal() {
+function openCloneEventModal(optionalSourceEventId) {
   const phaseLab = (ph) => (typeof phaseDisplayLabel === 'function' ? phaseDisplayLabel(ph) : PHASE_LABELS[ph] || ph);
   openModal('Clone Event', `
     <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">${
@@ -88,6 +88,13 @@ function openCloneEventModal() {
       </div>
     </div>
   `, `<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button><button type="button" class="btn btn-primary" onclick="submitCloneEventForm()">Clone Event</button>`);
+  if (optionalSourceEventId) {
+    const sel = document.getElementById('cloneEventSource');
+    if (sel) {
+      const v = String(optionalSourceEventId);
+      if ([].some.call(sel.options, function (o) { return o.value === v; })) sel.value = v;
+    }
+  }
 }
 
 function openAssignCrewModal(eventId) {
@@ -97,7 +104,7 @@ function openAssignCrewModal(eventId) {
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   openModal('Assign Crew — ' + ev.name, `
     <input type="hidden" id="assignCrewEventId" value="${String(eventId).replace(/"/g, '&quot;')}">
-    <div class="form-group"><label class="form-label">Search Crew</label><input type="text" class="form-input" placeholder="Type to filter…"></div>
+    <div class="form-group"><label class="form-label">Search personnel</label><input type="text" class="form-input" placeholder="Filter roster…"></div>
     <div style="max-height:300px;overflow-y:auto;">
       ${available.map(p => { const dept = getDepartment(p.dept); const deptUuid = uuidRe.test(String(p.dept || '')) ? String(p.dept).replace(/"/g, '&quot;') : ''; const roleEsc = String(p.role || 'crew').replace(/"/g, '&quot;'); return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border-subtle);cursor:pointer;" onclick="this.querySelector('input').checked=!this.querySelector('input').checked"><input type="checkbox" class="assign-crew-cb" value="${String(p.id).replace(/"/g, '&quot;')}" data-role="${roleEsc}"${deptUuid ? ` data-dept="${deptUuid}"` : ''} onclick="event.stopPropagation()"><div style="width:32px;height:32px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;">${p.initials}</div><div style="flex:1;"><div style="font-weight:500;font-size:13px;">${p.name}</div><div style="font-size:11px;color:var(--text-tertiary);">${p.role} · ${dept.name}</div></div><div style="font-size:12px;color:var(--text-secondary);">${formatCurrency(p.rate)}/day</div></div>`; }).join('')}
     </div>

@@ -1,5 +1,5 @@
 import { domainBus } from "../../domain/bus.js";
-import { recipientsForBudgetAlert, recipientsForCrewAssignment, recipientsForDocumentGenerated, recipientsForPhaseTransition, recipientsForSchedulingConflict, recipientsForTravelUpdate, recipientsForTruckAssignment, } from "./notification-recipients.js";
+import { recipientsForBudgetAlert, recipientsForCrewAssignment, recipientsForDocumentGenerated, recipientsForPhaseTransition, recipientsForSchedulingConflict, recipientsForTravelUpdate, recipientsForTruckAssignment, recipientsForRouteEta, } from "./notification-recipients.js";
 import { sendNotification } from "./notifications.service.js";
 function fire(pool, fn) {
     void fn().catch((e) => console.warn("[notifications] bus handler error", e));
@@ -117,6 +117,24 @@ export function registerNotificationBusListeners(pool) {
             if (recipients.length === 0)
                 return;
             await notifyUsers(pool, x.tenant_id, recipients, "travel_update", "Travel record updated", "A travel record was updated.", { event_id: x.event_id, travel_id: x.travel_id });
+        });
+    });
+    domainBus.on("route.delay_threshold_exceeded", (p) => {
+        const x = p;
+        if (!x.tenant_id || !x.event_id || !x.route_id)
+            return;
+        fire(pool, async () => {
+            const recipients = await recipientsForRouteEta(pool, x.tenant_id, x.event_id, "");
+            if (recipients.length === 0)
+                return;
+            await notifyUsers(pool, x.tenant_id, recipients, "route_eta", "Truck route delayed", `Route ETA slipped by ${x.delay_minutes ?? "?"} min (threshold ${x.threshold_minutes ?? "?"} min).`, {
+                event_id: x.event_id,
+                route_id: x.route_id,
+                truck_id: x.truck_id,
+                delay_minutes: x.delay_minutes,
+                threshold_minutes: x.threshold_minutes,
+                estimated_arrival: x.estimated_arrival,
+            });
         });
     });
     domainBus.on("budget.updated", (p) => {

@@ -277,6 +277,14 @@ export async function updateEvent(tenantId, userId, id, body) {
         updated_by: userId,
         updated_at: updated.updated_at,
     });
+    void writeAuditLog(pool, {
+        tenantId,
+        userId,
+        entityType: "event",
+        entityId: id,
+        action: "update",
+        changes: { fields: Object.keys(patch), before: prev, after: patch },
+    }).catch(() => undefined);
     if (patch.start_date !== undefined || patch.end_date !== undefined) {
         domainBus.emit("event.datesChanged", {
             event_id: id,
@@ -307,6 +315,14 @@ export async function deleteEvent(tenantId, userId, id) {
         deleted_by: userId,
         deleted_at: del.deleted_at,
     });
+    void writeAuditLog(pool, {
+        tenantId,
+        userId,
+        entityType: "event",
+        entityId: id,
+        action: "delete",
+        changes: { before: { name: existing.name } },
+    }).catch(() => undefined);
     return { ok: true, deleted: del };
 }
 export async function cloneEvent(tenantId, userId, sourceId, body) {
@@ -356,6 +372,14 @@ export async function cloneEvent(tenantId, userId, sourceId, body) {
         createdBy: userId,
     });
     emitEntityCustomFieldsUpdated({ tenantId, entityType: "event", entityId: event.id });
+    void writeAuditLog(pool, {
+        tenantId,
+        userId,
+        entityType: "event",
+        entityId: event.id,
+        action: "clone",
+        changes: { cloned_from: sourceId, name: event.name },
+    }).catch(() => undefined);
     return { ok: true, event, cloned_from: sourceId };
 }
 export async function transitionPhase(tenantId, userId, id, target, notes) {
@@ -386,6 +410,14 @@ export async function transitionPhase(tenantId, userId, id, target, notes) {
         changed_by: userId,
         changed_at: transitioned_at,
     });
+    void writeAuditLog(pool, {
+        tenantId,
+        userId,
+        entityType: "event",
+        entityId: id,
+        action: "phase_transition",
+        changes: { from, to: target },
+    }).catch(() => undefined);
     return {
         ok: true,
         event: updated,

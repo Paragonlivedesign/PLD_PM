@@ -19,6 +19,7 @@ export type DbTruckRow = {
   inspection_expiry: Date | string | null;
   notes: string | null;
   metadata: unknown;
+  custom_fields: unknown;
   retired_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -45,6 +46,10 @@ export function mapTruckRow(r: DbTruckRow): TruckResponse {
     r.metadata && typeof r.metadata === "object" && !Array.isArray(r.metadata)
       ? (r.metadata as Record<string, unknown>)
       : {};
+  const custom_fields =
+    r.custom_fields && typeof r.custom_fields === "object" && !Array.isArray(r.custom_fields)
+      ? (r.custom_fields as Record<string, unknown>)
+      : {};
   return {
     id: r.id,
     name: r.name,
@@ -62,6 +67,7 @@ export function mapTruckRow(r: DbTruckRow): TruckResponse {
     inspection_expiry: isoDateOnly(r.inspection_expiry),
     notes: r.notes,
     metadata,
+    custom_fields,
     created_at: iso(r.created_at instanceof Date ? r.created_at : new Date(r.created_at)),
     updated_at: iso(r.updated_at instanceof Date ? r.updated_at : new Date(r.updated_at)),
     retired_at: r.retired_at
@@ -90,16 +96,18 @@ export async function insertTruck(
     inspectionExpiry: string | null;
     notes: string | null;
     metadata: Record<string, unknown>;
+    customFields?: Record<string, unknown>;
   },
 ): Promise<TruckResponse> {
+  const cf = p.customFields && typeof p.customFields === "object" ? p.customFields : {};
   const r = await client.query<DbTruckRow>(
     `INSERT INTO trucks (
       id, tenant_id, name, type, license_plate, vin,
       capacity_cubic_ft, capacity_lbs, home_base, status,
       daily_rate, mileage_rate, current_mileage,
-      insurance_expiry, inspection_expiry, notes, metadata
+      insurance_expiry, inspection_expiry, notes, metadata, custom_fields
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::date,$15::date,$16,$17::jsonb
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::date,$15::date,$16,$17::jsonb,$18::jsonb
     ) RETURNING *`,
     [
       p.id,
@@ -119,9 +127,10 @@ export async function insertTruck(
       p.inspectionExpiry,
       p.notes,
       JSON.stringify(p.metadata),
+      JSON.stringify(cf),
     ],
   );
-  return mapTruckRow(r.rows[0]);
+  return mapTruckRow(r.rows[0]!);
 }
 
 export async function getTruckRowById(
@@ -312,6 +321,7 @@ export async function updateTruckPartial(
     inspection_expiry: string | null;
     notes: string | null;
     metadata: Record<string, unknown>;
+    custom_fields?: Record<string, unknown>;
     retired_at: string | null;
   }>,
 ): Promise<TruckResponse | null> {
@@ -365,6 +375,12 @@ export async function updateTruckPartial(
     patch.metadata !== undefined
       ? patch.metadata
       : (cur.metadata as Record<string, unknown>);
+  const custom_fields =
+    patch.custom_fields !== undefined
+      ? patch.custom_fields
+      : cur.custom_fields && typeof cur.custom_fields === "object" && !Array.isArray(cur.custom_fields)
+        ? (cur.custom_fields as Record<string, unknown>)
+        : {};
   const retired_at =
     patch.retired_at !== undefined
       ? patch.retired_at
@@ -379,7 +395,8 @@ export async function updateTruckPartial(
       daily_rate = $11, mileage_rate = $12, current_mileage = $13,
       insurance_expiry = $14::date, inspection_expiry = $15::date,
       notes = $16, metadata = $17::jsonb,
-      retired_at = $18::timestamptz,
+      custom_fields = $18::jsonb,
+      retired_at = $19::timestamptz,
       updated_at = NOW()
      WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NULL`,
     [
@@ -400,6 +417,7 @@ export async function updateTruckPartial(
       inspection_expiry,
       notes,
       JSON.stringify(md),
+      JSON.stringify(custom_fields),
       retired_at,
     ],
   );

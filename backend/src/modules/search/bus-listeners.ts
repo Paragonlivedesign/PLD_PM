@@ -81,6 +81,8 @@ export function registerSearchIndexBusListeners(pool: Pool): void {
       fire(pool, () => syncEventSearchRow(pool, x.tenantId!, x.entityId!));
     } else if (x.entityType === "personnel") {
       fire(pool, () => syncPersonnelSearchRow(pool, x.tenantId!, x.entityId!));
+    } else if (x.entityType === "truck") {
+      fire(pool, () => syncTruckSearchRow(pool, x.tenantId!, x.entityId!));
     }
   });
 }

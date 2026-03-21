@@ -8,6 +8,9 @@ import { routeParam } from "../../core/route-params.js";
 import { createContactsNestedRouter } from "../contacts/nested-routes.js";
 import * as repo from "./repository.js";
 import { createVenueSchema, listVenuesQuerySchema, updateVenueSchema, } from "./schemas.js";
+import { writeAuditLog } from "../audit/service.js";
+import { removeFromIndex } from "../search/service.js";
+import { syncVenueSearchRow } from "../search/sync-entity.js";
 export const venuesRouter = Router();
 venuesRouter.use("/:venueId/contacts", createContactsNestedRouter({
     parentType: "venue",
@@ -47,6 +50,14 @@ venuesRouter.post("/", requirePermission("venues:create"), asyncHandler(async (r
             notes: body.notes ?? null,
             metadata: body.metadata ?? {},
         });
+        void writeAuditLog(pool, {
+            tenantId: req.ctx.tenantId,
+            userId: req.ctx.userId,
+            entityType: "venue",
+            entityId: id,
+            action: "create",
+            changes: { after: { name: body.name } },
+        }).catch(() => undefined);
         res.status(201).json(ok(row));
     }
     catch (e) {
@@ -108,6 +119,15 @@ venuesRouter.put("/:id", requirePermission("venues:update"), asyncHandler(async 
             res.status(404).json(singleError("not_found", "Venue not found", 404).body);
             return;
         }
+        void writeAuditLog(pool, {
+            tenantId: req.ctx.tenantId,
+            userId: req.ctx.userId,
+            entityType: "venue",
+            entityId: routeParam(req.params.id),
+            action: "update",
+            changes: { patch },
+        }).catch(() => undefined);
+        void syncVenueSearchRow(pool, req.ctx.tenantId, routeParam(req.params.id)).catch(() => undefined);
         res.json(ok(updated));
     }
     catch (e) {
@@ -124,10 +144,20 @@ venuesRouter.delete("/:id", requirePermission("venues:delete"), asyncHandler(asy
         res.status(409).json(singleError("conflict", "Venue has events; cannot delete", 409).body);
         return;
     }
-    const del = await repo.softDeleteVenue(pool, req.ctx.tenantId, routeParam(req.params.id));
+    const vid = routeParam(req.params.id);
+    const del = await repo.softDeleteVenue(pool, req.ctx.tenantId, vid);
     if (!del) {
         res.status(404).json(singleError("not_found", "Venue not found", 404).body);
         return;
     }
+    void writeAuditLog(pool, {
+        tenantId: req.ctx.tenantId,
+        userId: req.ctx.userId,
+        entityType: "venue",
+        entityId: vid,
+        action: "delete",
+        changes: {},
+    }).catch(() => undefined);
+    void removeFromIndex(pool, "venues", vid, req.ctx.tenantId).catch(() => undefined);
     res.json(ok(del));
 }));

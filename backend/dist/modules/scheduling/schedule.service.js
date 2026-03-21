@@ -1,4 +1,5 @@
 import { pool } from "../../db/pool.js";
+import { listTruckRoutesOverlappingDateRange } from "../trucks/truck-routes.repository.js";
 import { getDayRate, getPerDiem } from "../personnel/index.js";
 import { listCrewAssignmentsOverlappingRange, mapCrewAssignmentRow, } from "./crew-assignments.repository.js";
 import { listTruckAssignmentsOverlappingRange, mapTruckAssignmentRow, } from "./truck-assignments.repository.js";
@@ -128,6 +129,31 @@ export async function getScheduleViewApi(input) {
     const resources = [...resourceMap.values()].sort((a, b) => a.resource_name.localeCompare(b.resource_name));
     const totalAssignments = resources.reduce((s, r) => s + r.assignments.length, 0);
     const conflictCount = await countActiveConflictsForTenant(pool, input.tenantId);
+    const routeRows = await listTruckRoutesOverlappingDateRange(pool, input.tenantId, range.start, range.end);
+    const truck_route_blocks = routeRows.map((r) => {
+        const dep = r.departure_datetime instanceof Date
+            ? r.departure_datetime.toISOString()
+            : new Date(r.departure_datetime).toISOString();
+        const eta = r.estimated_arrival instanceof Date
+            ? r.estimated_arrival.toISOString()
+            : new Date(r.estimated_arrival).toISOString();
+        const start = r.event_start_date?.slice(0, 10) ?? "";
+        let schedule_conflict_hint = null;
+        if (start && eta.slice(0, 10) > start) {
+            schedule_conflict_hint = `ETA (${eta.slice(0, 10)}) is after event start (${start}).`;
+        }
+        return {
+            route_id: r.id,
+            event_id: r.event_id,
+            event_name: r.event_name ?? "",
+            truck_id: r.truck_id,
+            truck_name: r.truck_name ?? "",
+            departure_datetime: dep,
+            estimated_arrival: eta,
+            status: r.status,
+            schedule_conflict_hint,
+        };
+    });
     return {
         data: {
             view,
@@ -137,6 +163,7 @@ export async function getScheduleViewApi(input) {
         meta: {
             total_assignments: totalAssignments,
             conflict_count: conflictCount,
+            truck_route_blocks,
         },
     };
 }

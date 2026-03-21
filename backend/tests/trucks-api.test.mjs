@@ -59,6 +59,23 @@ test("GET /api/v1/trucks returns envelope", async (t) => {
   assert.equal(j.errors, null);
 });
 
+test("GET /api/v1/truck-routes returns envelope", async (t) => {
+  if (!base) {
+    t.skip("Set PLD_TEST_API");
+    return;
+  }
+  const r = await tryFetch(`${base}/api/v1/truck-routes?limit=5`, { headers: hdr() });
+  if (!r) {
+    t.skip("API not reachable");
+    return;
+  }
+  assert.equal(r.status, 200);
+  const j = await r.json();
+  assert.ok(Array.isArray(j.data));
+  assert.ok(j.meta && typeof j.meta.total_count === "number");
+  assert.equal(j.errors, null);
+});
+
 test("POST /api/v1/trucks create truck", async (t) => {
   if (!base) {
     t.skip("Set PLD_TEST_API");

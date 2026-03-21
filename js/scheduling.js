@@ -9,9 +9,6 @@ function getScheduleWeekLabel() {
 }
 
 function renderScheduling() {
-  const conflictList = [];
-  const hasConflict = conflictList.length > 0;
-
   return `
     <div class="page-header">
       <div><h1 class="page-title">Scheduling</h1><p class="page-subtitle">Company-wide event timeline and calendar</p></div>
@@ -19,23 +16,7 @@ function renderScheduling() {
         <button class="btn btn-secondary" onclick="openAutoOptimizeModal()">Auto-Optimize</button>
       </div>
     </div>
-    ${hasConflict ? `
-      <div class="conflict-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${conflictList.length} conflict${conflictList.length !== 1 ? 's' : ''}</span><button class="btn btn-sm" style="background:rgba(239,68,68,0.2);color:var(--accent-red);border:none;margin-left:auto;" onclick="openConflictResolutionModal()">Resolve</button></div>
-      <div class="conflict-summary-panel">
-        <div class="conflict-summary-panel-header">Conflict summary</div>
-        <div class="conflict-summary-panel-list">
-          ${conflictList.map(c => `
-            <div class="conflict-summary-row">
-              <div class="conflict-summary-info">
-                <strong>${c.resource}</strong> — ${c.type}<br>
-                <span class="conflict-summary-detail">${c.events} (${c.dates})</span>
-              </div>
-              <button class="btn btn-ghost btn-sm" style="color:var(--accent-red);" onclick="openConflictResolutionModal()">Resolve</button>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    ` : ''}
+    <div id="pldSchedulingConflictHost" style="min-height:0;"></div>
     <div class="schedule-controls">
       <div class="view-toggle">
         <button class="view-toggle-btn ${scheduleView === 'timeline' ? 'active' : ''}" onclick="scheduleView='timeline'; renderPage('scheduling');">Timeline</button>
@@ -402,3 +383,66 @@ function renderScheduleCalendar(opts) {
     </div>
   `;
 }
+
+/**
+ * Load open scheduling conflicts from GET /api/v1/conflicts into #pldSchedulingConflictHost.
+ */
+window.pldHydrateSchedulingConflicts = async function pldHydrateSchedulingConflicts() {
+  const host = document.getElementById('pldSchedulingConflictHost');
+  if (!host) return;
+  if (typeof window.pldApiFetch !== 'function' || !window.PLD_API_BASE) {
+    host.innerHTML = '';
+    return;
+  }
+  host.innerHTML =
+    '<p style="font-size:12px;color:var(--text-tertiary);margin:8px 0 12px;">Loading conflicts…</p>';
+  try {
+    const res = await window.pldApiFetch('/api/v1/conflicts?limit=50&status=active', {
+      method: 'GET',
+    });
+    if (!res.ok || !res.body || !Array.isArray(res.body.data)) {
+      host.innerHTML = '';
+      return;
+    }
+    const rows = res.body.data;
+    if (!rows.length) {
+      host.innerHTML = '';
+      return;
+    }
+    const esc = (s) =>
+      String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const listHtml = rows
+      .map((c) => {
+        const resource = esc(c.resource_type) + ': ' + esc(c.resource_name || c.resource_id);
+        const type = esc(c.conflict_kind || 'conflict') + (c.severity ? ' (' + esc(c.severity) + ')' : '');
+        const dates = esc(c.overlap_start || '') + (c.overlap_end ? ' – ' + esc(c.overlap_end) : '');
+        const evNames = Array.isArray(c.assignments)
+          ? c.assignments
+              .map((a) => a && a.event_name)
+              .filter(Boolean)
+              .join(', ')
+          : '';
+        const detail = evNames ? esc(evNames) + ' · ' + dates : dates;
+        return `<div class="conflict-summary-row">
+              <div class="conflict-summary-info">
+                <strong>${resource}</strong> — ${type}<br>
+                <span class="conflict-summary-detail">${detail}</span>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent-red);" onclick="typeof openConflictResolutionModal==='function'&&openConflictResolutionModal()">Review</button>
+            </div>`;
+      })
+      .join('');
+    host.innerHTML = `
+      <div class="conflict-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>${rows.length} open conflict${rows.length !== 1 ? 's' : ''}</span><button type="button" class="btn btn-sm" style="background:rgba(239,68,68,0.2);color:var(--accent-red);border:none;margin-left:auto;" onclick="typeof openConflictResolutionModal==='function'&&openConflictResolutionModal()">Resolve</button></div>
+      <div class="conflict-summary-panel">
+        <div class="conflict-summary-panel-header">Conflict summary</div>
+        <div class="conflict-summary-panel-list">${listHtml}</div>
+      </div>`;
+  } catch (_e) {
+    host.innerHTML = '';
+  }
+};

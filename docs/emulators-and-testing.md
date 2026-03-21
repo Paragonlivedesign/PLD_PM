@@ -152,8 +152,8 @@ Edit `scripts/seed-collections.mjs` (or regenerate from a spreadsheet later), th
 
 ## Regression notes (auth / financial / analytics permissions)
 
-- **`GET /api/v1/tenant`:** Any authenticated context (JWT or dev headers) should return `200` with `data.name` for shell branding.
-- **`PUT /api/v1/tenant`:** Expect `403` without `tenancy.settings.edit`; success updates sidebar after `pldRefreshTenantShell`.
+- **`GET /api/v1/tenant`:** Any authenticated context (JWT or dev headers) should return `200` with `data.name` for shell branding. Full `settings` (including `features`) requires `tenancy.settings.view` or `*`; otherwise a branding-only subset is returned (see `contracts/tenancy.contract.md`).
+- **`PUT /api/v1/tenant`:** Expect `403` without `tenancy.settings.edit`; success updates sidebar after `pldRefreshTenantShell`. Re-login after RBAC migrations so JWT permission cache picks up new grants.
 - **`GET /api/v1/reports/costs`:** Requires `reports:read`; dev headers with `*` succeed in local smoke tests.
 - **`GET /api/v1/financials`:** List endpoint used for recent rows; admin role with `*` passes.
 - **`GET /api/v1/auth/me`:** Used implicitly via login payload for initials; Account page issues `PUT` for profile fields.

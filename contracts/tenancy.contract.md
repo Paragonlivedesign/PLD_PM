@@ -11,6 +11,7 @@
 
 - [Response Envelope](#response-envelope)
 - [Endpoints — Tenant Configuration](#endpoints--tenant-configuration)
+- [POST /api/v1/tenant/reset-data](#post-apiv1tenantreset-data)
 - [Endpoints — Departments](#endpoints--departments)
 - [Type Definitions](#type-definitions)
 - [Internal Interface](#internal-interface)
@@ -88,6 +89,44 @@ All responses follow the standard envelope:
 | 400 | Validation failure (invalid settings values, unknown keys stripped) |
 | 401 | Unauthenticated |
 | 403 | Insufficient permissions |
+
+---
+
+### POST /api/v1/tenant/reset-data
+
+**Description:** Irreversibly deletes **operational** data for the current tenant (events, clients, venues, personnel, travel, documents, scheduling, financial rows, custom fields, departments, etc.). **Does not** delete the tenant row, users, roles, or role permissions — users remain able to sign in.
+
+**Auth:** Required. Tenant-scoped. Requires `tenancy.settings.edit` (or wildcard `*`).
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| confirm | string | yes | Must be exactly `RESET` |
+
+**Response — `200 OK`:**
+
+```
+{
+  data: {
+    reset: true,
+    tenant_id: "<uuid>",
+    deleted_steps: <integer>
+  },
+  meta: null,
+  errors: null
+}
+```
+
+**Error Responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | `confirm` is not `RESET` |
+| 403 | Insufficient permissions, or reset disabled on server (production requires `PLD_ALLOW_TENANT_DATA_RESET=1`) |
+| 500 | Database error during transaction (rolled back) |
+
+**Server:** In `NODE_ENV=production`, the handler returns **403** unless environment variable `PLD_ALLOW_TENANT_DATA_RESET` is set to `1` or `true`. Non-production environments allow reset by default.
 
 ---
 
@@ -279,7 +318,25 @@ All responses follow the standard envelope:
 | time_format | enum: 12h, 24h | Time display format. Default: `"12h"` |
 | branding | TenantBranding | Branding configuration |
 | password_policy | PasswordPolicy | Password requirements |
-| features | object | Reserved for future feature flag overrides |
+| features | object | Feature flags (merged with server defaults). See [Tenant features](#tenant-features). |
+
+### Tenant features
+
+Nested under `settings.features` (deep-merged on `PUT /api/v1/tenant`):
+
+**`features.scheduling`**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| conflict_detection_enabled | boolean | `true` | When `false`, scheduling does not record new conflicts and conflict list APIs return empty. |
+| buffer_windows_enabled | boolean | `true` | When `false`, double-booking soft conflicts are not created (drive-time checks may still apply). |
+| drive_time_buffer_hours | number | `4` | Extra hours required beyond computed drive time between consecutive gigs (0–168). |
+
+**`features.data_export`**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| audit_logging_enabled | boolean | `true` | When `false`, `writeAuditLog` is a no-op for this tenant. |
 
 ### TenantBranding
 

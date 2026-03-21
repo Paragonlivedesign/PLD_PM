@@ -16,6 +16,7 @@ import {
   mergeSettingsJson,
   parsePartialTenantSettings,
   resolveTenantSettings,
+  sanitizeTenantSettingsFeaturesInPlace,
 } from "./tenant-settings.js";
 import type {
   DepartmentResponse,
@@ -133,6 +134,7 @@ export async function updateTenantForApi(body: Record<string, unknown>): Promise
       throw new HttpError(400, "VALIDATION", msg, "settings");
     }
     nextSettings = mergeSettingsJson(nextSettings, partial);
+    sanitizeTenantSettingsFeaturesInPlace(nextSettings);
   }
 
   const updated = await tenantRepo.updateTenant(pool, ctx.tenantId, {

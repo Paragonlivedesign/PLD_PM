@@ -28,6 +28,7 @@ function renderPage(page, opts) {
     case 'venues': html = typeof renderVenues === 'function' ? renderVenues() : ''; break;
     case 'vendors': html = typeof renderVendors === 'function' ? renderVendors() : ''; break;
     case 'settings': html = typeof renderSettings === 'function' ? renderSettings() : ''; break;
+    case 'search': html = typeof renderSearchPage === 'function' ? renderSearchPage() : ''; break;
     case 'platform-admin':
       html = typeof renderPlatformAdmin === 'function' ? renderPlatformAdmin() : '';
       break;
@@ -56,6 +57,7 @@ function renderPage(page, opts) {
   }
   if (page === 'scheduling') {
     setTimeout(() => {
+      if (typeof pldHydrateSchedulingConflicts === 'function') void pldHydrateSchedulingConflicts();
       if (scheduleView === 'api') {
         if (typeof pldHydrateSchedulingSheet === 'function') pldHydrateSchedulingSheet();
       } else if (scheduleView === 'timeline') {
@@ -95,12 +97,20 @@ function renderPage(page, opts) {
         void pldFetchClientsFromApiIfConfigured(q);
       }, 0);
     }
+    if (page === 'venues' && typeof window.pldFetchVenuesFromApiIfConfigured === 'function') {
+      setTimeout(() => {
+        const q =
+          typeof window.__pldVenuesListSearch === 'string' ? window.__pldVenuesListSearch : '';
+        void window.pldFetchVenuesFromApiIfConfigured(q);
+      }, 0);
+    }
     if (page === 'financial' && typeof pldHydrateFinancialFromApi === 'function') {
       setTimeout(() => pldHydrateFinancialFromApi(), 0);
     }
     if (page === 'vendors' && typeof window.pldRefreshVendorsFromApiIfConfigured === 'function') {
       setTimeout(() => {
         void (async () => {
+          if (typeof window.__pldVendorsApiLoadError !== 'undefined') window.__pldVendorsApiLoadError = null;
           await window.pldRefreshVendorsFromApiIfConfigured();
           if (typeof renderPage === 'function') renderPage('vendors', { skipModuleDataFetch: true });
         })();
@@ -110,6 +120,9 @@ function renderPage(page, opts) {
       setTimeout(() => pldHydratePlatformAdmin(), 0);
     }
   }
+  if (page === 'search' && typeof pldHydrateSearchPage === 'function') {
+    setTimeout(() => pldHydrateSearchPage(), 0);
+  }
   if (page === 'settings' && typeof settingsTab !== 'undefined' && settingsTab === 'customfields') {
     setTimeout(() => {
       if (typeof loadCustomFieldsSettingsContent === 'function') loadCustomFieldsSettingsContent();
@@ -118,10 +131,7 @@ function renderPage(page, opts) {
   if (page === 'settings' && typeof settingsTab !== 'undefined' && settingsTab === 'general') {
     setTimeout(async () => {
       if (typeof window.pldRefreshTenantShell === 'function') await window.pldRefreshTenantShell();
-      const inp = document.getElementById('pldSettingsTenantName');
-      if (inp && window.__pldTenant && window.__pldTenant.name) {
-        inp.value = String(window.__pldTenant.name);
-      }
+      if (typeof pldHydrateSettingsGeneralInputs === 'function') pldHydrateSettingsGeneralInputs();
     }, 0);
   }
   if (page === 'settings' && typeof settingsTab !== 'undefined' && settingsTab === 'workforce') {

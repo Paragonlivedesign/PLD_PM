@@ -36,8 +36,30 @@ import {
   emitPersonnelRoleChanged,
   emitPersonnelUpdated,
 } from "./personnel.events.js";
+import { writeAuditLog } from "../audit/service.js";
+import { validateCustomFields } from "../custom-fields/service.js";
+import { emitEntityCustomFieldsUpdated } from "../../domain/entity-events.js";
+import {
+  buildDocumentFilePublicUrl,
+  validatePersonnelPhotoDocument,
+} from "../documents/personnel-photo.js";
 
 const DEFAULT_CURRENCY = "USD";
+
+type ReqForPhotoUrl = { protocol: string; get: (h: string) => string | undefined };
+
+function attachPersonnelPhotoForHttp(
+  row: PersonnelRowInternal,
+  tenantId: string,
+  req: ReqForPhotoUrl,
+): PersonnelResponse {
+  const base = toPublicPersonnel(row);
+  if (!row.photo_document_id) {
+    return { ...base, photo_url: null, photo_url_expires_at: null };
+  }
+  const { url, expires_at } = buildDocumentFilePublicUrl(row.photo_document_id, tenantId, req);
+  return { ...base, photo_url: url, photo_url_expires_at: expires_at };
+}
 
 export function toPublicPersonnel(row: PersonnelRowInternal): PersonnelResponse {
   return row;
@@ -80,6 +102,7 @@ function isDateBlocked(
 
 export async function listPersonnel(
   query: Record<string, string | undefined>,
+  req: ReqForPhotoUrl,
 ): Promise<{ data: PersonnelResponse[]; meta: { cursor: string | null; has_more: boolean; total_count: number } }> {
   const ctx = getContext();
   const limit = Math.min(
@@ -119,7 +142,9 @@ export async function listPersonnel(
     offset,
     limit,
   );
-  const data = rows.map((r) => projectPersonnel(toPublicPersonnel(r), ctx.permissions));
+  const data = rows.map((r) =>
+    projectPersonnel(attachPersonnelPhotoForHttp(r, ctx.tenantId, req), ctx.permissions),
+  );
   const hasMore = offset + rows.length < total;
   const nextCursor = hasMore ? encodeOffsetCursor(offset + limit) : null;
   return {
@@ -128,7 +153,10 @@ export async function listPersonnel(
   };
 }
 
-export async function createPersonnel(body: Record<string, unknown>): Promise<PersonnelResponse> {
+export async function createPersonnel(
+  body: Record<string, unknown>,
+  req: ReqForPhotoUrl,
+): Promise<PersonnelResponse> {
   const ctx = getContext();
   const first_name = String(body.first_name ?? "");
   const last_name = String(body.last_name ?? "");
@@ -158,6 +186,13 @@ export async function createPersonnel(body: Record<string, unknown>): Promise<Pe
   const emergency_contact = body.emergency_contact ?? null;
   const metadata = (body.metadata as Record<string, unknown>) ?? {};
 
+  let photo_document_id: string | null = null;
+  if (body.photo_document_id != null && String(body.photo_document_id).trim() !== "") {
+    const docId = String(body.photo_document_id).trim();
+    await validatePersonnelPhotoDocument(pool, ctx.tenantId, docId, null);
+    photo_document_id = docId;
+  }
+
   const id = randomUUID();
   const row = await pRepo.insertPersonnel(pool, {
     id,
@@ -178,6 +213,7 @@ export async function createPersonnel(body: Record<string, unknown>): Promise<Pe
     status,
     emergency_contact,
     metadata,
+    photo_document_id,
   });
 
   emitPersonnelCreated({
@@ -193,19 +229,29 @@ export async function createPersonnel(body: Record<string, unknown>): Promise<Pe
     created_at: row.created_at,
   });
 
-  return projectPersonnel(toPublicPersonnel(row), ctx.permissions);
+  void writeAuditLog(pool, {
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    entityType: "personnel",
+    entityId: id,
+    action: "create",
+    changes: { after: { email, role } },
+  }).catch(() => undefined);
+
+  return projectPersonnel(attachPersonnelPhotoForHttp(row, ctx.tenantId, req), ctx.permissions);
 }
 
-export async function getPersonnel(id: string): Promise<PersonnelResponse> {
+export async function getPersonnel(id: string, req: ReqForPhotoUrl): Promise<PersonnelResponse> {
   const ctx = getContext();
   const row = await pRepo.findPersonnelById(pool, ctx.tenantId, id, true);
   if (!row) throw new HttpError(404, "NOT_FOUND", "Personnel not found");
-  return projectPersonnel(toPublicPersonnel(row), ctx.permissions);
+  return projectPersonnel(attachPersonnelPhotoForHttp(row, ctx.tenantId, req), ctx.permissions);
 }
 
 export async function updatePersonnel(
   id: string,
   body: Record<string, unknown>,
+  req: ReqForPhotoUrl,
 ): Promise<PersonnelResponse> {
   const ctx = getContext();
   const existing = await pRepo.findPersonnelById(pool, ctx.tenantId, id, true);
@@ -259,6 +305,33 @@ export async function updatePersonnel(
   if (body.metadata !== undefined) {
     const merged = { ...existing.metadata, ...(body.metadata as Record<string, unknown>) };
     patch.metadata = merged;
+  }
+  if (body.custom_fields !== undefined) {
+    const merged = {
+      ...existing.custom_fields,
+      ...(body.custom_fields as Record<string, unknown>),
+    };
+    const cfCheck = await validateCustomFields(pool, "personnel", ctx.tenantId, merged);
+    if (!cfCheck.valid) {
+      const first = cfCheck.errors[0];
+      throw new HttpError(
+        400,
+        "VALIDATION",
+        first?.message ?? "Invalid custom fields",
+        "custom_fields",
+      );
+    }
+    patch.custom_fields = cfCheck.cleaned_values;
+  }
+  if (body.photo_document_id !== undefined) {
+    const raw = body.photo_document_id;
+    if (raw === null || raw === "") {
+      patch.photo_document_id = null;
+    } else {
+      const docId = String(raw).trim();
+      await validatePersonnelPhotoDocument(pool, ctx.tenantId, docId, id);
+      patch.photo_document_id = docId;
+    }
   }
 
   const changed = Object.keys(patch).filter((k) => k !== "metadata");
@@ -320,7 +393,20 @@ export async function updatePersonnel(
     });
   }
 
-  return projectPersonnel(toPublicPersonnel(updated), ctx.permissions);
+  void writeAuditLog(pool, {
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    entityType: "personnel",
+    entityId: id,
+    action: "update",
+    changes: { fields: changed, before: prev, after: next },
+  }).catch(() => undefined);
+
+  if ("custom_fields" in patch) {
+    emitEntityCustomFieldsUpdated({ tenantId: ctx.tenantId, entityType: "personnel", entityId: id });
+  }
+
+  return projectPersonnel(attachPersonnelPhotoForHttp(updated, ctx.tenantId, req), ctx.permissions);
 }
 
 export async function deletePersonnel(id: string): Promise<{ id: string; status: string; deactivated_at: string }> {
@@ -346,6 +432,15 @@ export async function deletePersonnel(id: string): Promise<{ id: string; status:
     deactivated_by: ctx.userId,
     deactivated_at: out.deactivated_at,
   });
+
+  void writeAuditLog(pool, {
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    entityType: "personnel",
+    entityId: id,
+    action: "deactivate",
+    changes: { before: { email: existing.email } },
+  }).catch(() => undefined);
 
   return { id: out.id, status: "inactive", deactivated_at: out.deactivated_at };
 }

@@ -58,6 +58,7 @@ All responses follow the standard envelope:
 | status | enum: active, inactive, on_leave | no | Default: `active` |
 | emergency_contact | object | no | See `EmergencyContact` type |
 | metadata | object | no | Key-value custom fields |
+| photo_document_id | UUID | no | Headshot: must reference an existing tenant `documents` row with `category=photo` and an image `mime_type` (typically set after `POST /api/v1/documents/upload`) |
 
 **Response — `201 Created`:**
 
@@ -174,6 +175,7 @@ All responses follow the standard envelope:
 | status | enum | no | Status |
 | emergency_contact | object | no | Emergency contact |
 | metadata | object | no | Merged with existing metadata |
+| photo_document_id | UUID | no | Set or replace headshot document; send `null` to clear |
 | version | integer | no | Expected row version for optimistic locking; must match `PersonnelResponse.version` from the last read. If omitted, update applies without version check. |
 
 **Response — `200 OK`:**
@@ -462,6 +464,9 @@ The backend accepts legacy permission names `departments:create`, `departments:u
 | status | enum: active, inactive, on_leave | Current status |
 | emergency_contact | EmergencyContact | null | Emergency contact info |
 | metadata | object | Custom fields |
+| photo_document_id | UUID | null | Linked headshot document id |
+| photo_url | string | null | Time-limited direct URL for the image file (list/get only; use for `<img src>`) |
+| photo_url_expires_at | ISO 8601 datetime | null | When `photo_url` stops working |
 | created_at | ISO 8601 datetime | Creation timestamp |
 | updated_at | ISO 8601 datetime | Last update timestamp |
 | deactivated_at | ISO 8601 datetime | null | Deactivation timestamp |

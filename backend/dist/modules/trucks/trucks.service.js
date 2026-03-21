@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 import { TRUCK_TYPES, TRUCK_STATUSES } from "@pld/shared";
 import { pool } from "../../db/pool.js";
 import { domainBus } from "../../domain/bus.js";
+import { emitEntityCustomFieldsUpdated } from "../../domain/entity-events.js";
+import { validateCustomFields } from "../custom-fields/service.js";
 import { newId } from "../../utils/ids.js";
 import { eachDateInclusive, rangesOverlap } from "../../utils/dates.js";
 import { countActiveFutureAssignmentsForTruck } from "../scheduling/truck-assignments.repository.js";
@@ -12,6 +14,7 @@ import { countTruckRoutes, getTruckRouteById, getTruckRouteByShareToken, insertT
 import { parseRouteLocationRef, refToJson, resolveRouteLocationCoordinate, resolveRouteLocationLabel, } from "./route-location.js";
 import { computeRouteDirections } from "./route-directions.js";
 import { getEventById } from "../events/repository.js";
+import { writeAuditLog } from "../audit/service.js";
 function isTruckType(s) {
     return TRUCK_TYPES.includes(s);
 }
@@ -42,7 +45,7 @@ async function scheduleConflictHint(tenantId, eventId, estimatedArrivalIso) {
     }
     return null;
 }
-export async function enrichTruckRouteResponse(row) {
+async function enrichTruckRouteResponse(row) {
     const mapped = mapTruckRouteRow(row);
     const hint = await scheduleConflictHint(row.tenant_id, row.event_id, mapped.estimated_arrival);
     return mapTruckRouteRow(row, {
@@ -152,6 +155,14 @@ export async function createTruck(input) {
             : {},
     });
     domainBus.emit("truck.created", { truck_id: data.id, tenant_id: input.tenantId });
+    void writeAuditLog(pool, {
+        tenantId: input.tenantId,
+        userId: input.userId,
+        entityType: "truck",
+        entityId: data.id,
+        action: "create",
+        changes: { after: { name } },
+    }).catch(() => undefined);
     return { ok: true, data };
 }
 export async function listTrucksApi(q) {
@@ -297,9 +308,37 @@ export async function updateTruck(input) {
             : {};
         patch.metadata = { ...existing, ...input.body.metadata };
     }
+    if (input.body.custom_fields !== undefined) {
+        const existing = cur.custom_fields && typeof cur.custom_fields === "object" && !Array.isArray(cur.custom_fields)
+            ? cur.custom_fields
+            : {};
+        const merged = {
+            ...existing,
+            ...input.body.custom_fields,
+        };
+        const cfCheck = await validateCustomFields(pool, "truck", input.tenantId, merged);
+        if (!cfCheck.valid) {
+            return {
+                ok: false,
+                status: 400,
+                errors: cfCheck.errors.map((e) => ({
+                    code: e.code || "validation",
+                    message: e.message,
+                })),
+            };
+        }
+        patch.custom_fields = cfCheck.cleaned_values;
+    }
     const data = await updateTruckPartial(pool, input.tenantId, input.id, patch);
     if (!data)
         return { ok: false, status: 404, errors: [{ code: "not_found", message: "Not found" }] };
+    if ("custom_fields" in patch) {
+        emitEntityCustomFieldsUpdated({
+            tenantId: input.tenantId,
+            entityType: "truck",
+            entityId: input.id,
+        });
+    }
     domainBus.emit("truck.updated", {
         truck_id: data.id,
         tenant_id: input.tenantId,
@@ -307,7 +346,7 @@ export async function updateTruck(input) {
     });
     return { ok: true, data };
 }
-export async function retireTruckApi(tenantId, id) {
+export async function retireTruckApi(tenantId, id, userId = null) {
     const today = new Date().toISOString().slice(0, 10);
     const n = await countActiveFutureAssignmentsForTruck(pool, tenantId, id, today);
     if (n > 0) {
@@ -335,6 +374,14 @@ export async function retireTruckApi(tenantId, id) {
         old_status: row.status,
         new_status: "retired",
     });
+    void writeAuditLog(pool, {
+        tenantId,
+        userId,
+        entityType: "truck",
+        entityId: id,
+        action: "retire",
+        changes: { before: { status: row.status } },
+    }).catch(() => undefined);
     return { ok: true, data };
 }
 export async function createAssignmentViaTruck(input) {

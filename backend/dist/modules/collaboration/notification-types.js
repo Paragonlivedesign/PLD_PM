@@ -7,6 +7,7 @@ export const NOTIFICATION_TYPES = [
     "travel_update",
     "document_generated",
     "comment",
+    "route_eta",
 ];
 /** Defaults aligned with legacy Settings UI matrix. */
 export const DEFAULT_PREF_MATRIX = {
@@ -17,6 +18,7 @@ export const DEFAULT_PREF_MATRIX = {
     travel_update: { in_app: true, email: true, slack: false },
     document_generated: { in_app: true, email: false, slack: true },
     comment: { in_app: true, email: false, slack: true },
+    route_eta: { in_app: true, email: false, slack: false },
 };
 export function isNotificationType(s) {
     return NOTIFICATION_TYPES.includes(s);

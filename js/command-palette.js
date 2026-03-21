@@ -3,6 +3,17 @@
    Depends on: state.js, data.js, navigation.js
    ============================================ */
 
+/** Close palette, stash query, open full search page (see pld-search-page.js). */
+window.pldNavigateToFullSearch = function pldNavigateToFullSearch(query) {
+  const pal = document.getElementById('commandPalette');
+  if (pal) pal.classList.add('hidden');
+  window.__pldSearchPageQuery = typeof query === 'string' ? query : '';
+  if (typeof navigateTo === 'function') navigateTo('search');
+  setTimeout(function () {
+    if (typeof pldHydrateSearchPage === 'function') pldHydrateSearchPage();
+  }, 0);
+};
+
 function initCommandPalette() {
   const palette = document.getElementById('commandPalette');
   const input = document.getElementById('commandInput');
@@ -153,9 +164,16 @@ function renderCommandResults(query, container) {
       </div>`);
         }
       }
+      const viewAll =
+        '<div class="command-result-item" onclick=\'pldNavigateToFullSearch(' +
+        JSON.stringify(q) +
+        ')\'>' +
+        '<div class="result-icon" style="background: var(--accent-blue-muted); color: var(--accent-blue);">↗</div>' +
+        '<div style="font-weight:500;">View all API results</div></div>';
       slot.innerHTML =
         '<div class="command-result-group"><div class="command-result-group-label">API search</div>' +
         (parts.length ? parts.join('') : '<div style="padding:8px 12px;font-size:12px;color:var(--text-tertiary);">No API matches</div>') +
+        viewAll +
         '</div>';
     });
 }

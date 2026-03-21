@@ -196,5 +196,24 @@ $pld_vendor_link$;
       .send({ linked_client_id: clientId });
     expect(venPut.status).toBe(200);
     expect(venPut.body.data.linked_client_id).toBe(clientId);
+
+    const venCreate = await request(app)
+      .post("/api/v1/vendors")
+      .set(apiHeaders(tenantId, userId))
+      .send({ name: `Vendor CRUD ${Date.now()}` });
+    expect(venCreate.status).toBe(201);
+    const newVendorId = venCreate.body.data.id as string;
+
+    const venPatch = await request(app)
+      .put(`/api/v1/vendors/${newVendorId}`)
+      .set(apiHeaders(tenantId, userId))
+      .send({ name: "Vendor CRUD renamed", phone: "555-0100" });
+    expect(venPatch.status).toBe(200);
+    expect(venPatch.body.data.name).toBe("Vendor CRUD renamed");
+
+    const venDel = await request(app)
+      .delete(`/api/v1/vendors/${newVendorId}`)
+      .set(apiHeaders(tenantId, userId));
+    expect(venDel.status).toBe(200);
   });
 });

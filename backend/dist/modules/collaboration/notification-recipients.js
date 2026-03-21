@@ -26,6 +26,10 @@ export async function recipientsForTruckAssignment(pool, tenantId, eventId, acto
     const owner = await getEventCreatedBy(pool, tenantId, eventId);
     return dedupeUsers([owner], actorUserId);
 }
+/** Truck route delay / ETA alerts: event owner (same as truck assignment). */
+export async function recipientsForRouteEta(pool, tenantId, eventId, actorUserId) {
+    return recipientsForTruckAssignment(pool, tenantId, eventId, actorUserId);
+}
 /** Phase change: event owner, not the user who changed phase. */
 export async function recipientsForPhaseTransition(pool, tenantId, eventId, changedBy) {
     const owner = await getEventCreatedBy(pool, tenantId, eventId);

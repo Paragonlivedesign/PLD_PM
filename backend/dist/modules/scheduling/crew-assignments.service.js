@@ -6,6 +6,8 @@ import { calendarHoursBetweenIsoDates, driveHoursForDistanceKm, haversineKm, } f
 import { getEventByIdInternal } from "../events/index.js";
 import { getVenueById } from "../venues/repository.js";
 import { findDepartmentById } from "../tenancy/department.repository.js";
+import { getTenantConfig } from "../tenancy/tenancy.service.js";
+import { tenantBufferWindowsEnabledResolved, tenantConflictDetectionEnabledResolved, tenantDriveTimeBufferHoursResolved, } from "../tenancy/tenant-settings.js";
 import { getDayRate, getPerDiem, getPersonnelById } from "../personnel/index.js";
 import { getConflictById, insertSchedulingConflict, mapConflictRow, refreshHasConflictsForParticipants, resolveActiveDriveConflictsForPersonnel, resolveConflictsTouchingAssignment, } from "./conflicts.repository.js";
 import { findOverlappingCrewAssignments, getCrewAssignmentById, insertCrewAssignment, listAllActiveCrewAssignmentsForPersonnel, listCrewAssignments, listCrewAssignmentsByEventId, countCrewAssignments, mapCrewAssignmentRow, softDeleteCrewAssignment, updateCrewAssignment, } from "./crew-assignments.repository.js";
@@ -63,6 +65,11 @@ function summaryFromConflictRow(row, overlapDates) {
     };
 }
 async function createSoftConflictsForCrewPairwise(client, tenantId, personnelId, personnelName, newRow, overlapping) {
+    const cfg = await getTenantConfig(tenantId);
+    if (!tenantConflictDetectionEnabledResolved(cfg))
+        return [];
+    if (!tenantBufferWindowsEnabledResolved(cfg))
+        return [];
     const summaries = [];
     for (const ex of overlapping) {
         const { start, end } = overlapRange(isoDate(newRow.start_date), isoDate(newRow.end_date), isoDate(ex.start_date), isoDate(ex.end_date));
@@ -112,6 +119,10 @@ async function createSoftConflictsForCrewPairwise(client, tenantId, personnelId,
  * CP2 2.E.3 — consecutive non-overlapping gigs: if calendar gap (hours) < drive time between venues, soft conflict.
  */
 async function refreshDriveTimeConflictsForPersonnel(client, tenantId, personnelId, personnelName) {
+    const cfg = await getTenantConfig(tenantId);
+    if (!tenantConflictDetectionEnabledResolved(cfg))
+        return [];
+    const bufferExtra = tenantDriveTimeBufferHoursResolved(cfg);
     await resolveActiveDriveConflictsForPersonnel(client, tenantId, personnelId);
     const rows = await listAllActiveCrewAssignmentsForPersonnel(client, tenantId, personnelId);
     rows.sort((a, b) => {
@@ -140,7 +151,7 @@ async function refreshDriveTimeConflictsForPersonnel(client, tenantId, personnel
             continue;
         }
         const km = haversineKm(v1.latitude, v1.longitude, v2.latitude, v2.longitude);
-        const needH = driveHoursForDistanceKm(km);
+        const needH = driveHoursForDistanceKm(km) + bufferExtra;
         if (gapH >= needH)
             continue;
         const assignments = [crewRef(first), crewRef(second)];

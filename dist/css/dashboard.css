@@ -1,0 +1,126 @@
+/* ============================================
+   Activity Feed
+   ============================================ */
+.activity-feed { display: flex; flex-direction: column; gap: 0; }
+
+.activity-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.activity-item:last-child { border-bottom: none; }
+
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.activity-content {
+  flex: 1;
+  font-size: 13px;
+}
+
+.activity-content strong { font-weight: 600; }
+
+.activity-time {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ============================================
+   Grid Layouts
+   ============================================ */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+.grid-2-1 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+/* Dashboard calendar overview */
+.dash-cal-header {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+.dash-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  font-size: 11px;
+}
+.dash-cal-weekday {
+  padding: 4px 0;
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.dash-cal-cell {
+  min-height: 52px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+.dash-cal-cell.dash-cal-empty {
+  background: var(--bg-secondary);
+  opacity: 0.5;
+}
+.dash-cal-cell.dash-cal-day {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.dash-cal-cell.dash-cal-day:hover {
+  background: var(--bg-hover);
+}
+.dash-cal-cell.dash-cal-today {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-muted);
+}
+.dash-cal-num {
+  display: block;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+.dash-cal-today .dash-cal-num {
+  color: var(--accent-blue);
+}
+.dash-cal-chip {
+  padding: 2px 4px;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  cursor: pointer;
+}
+.dash-cal-chip:hover {
+  filter: brightness(1.1);
+}
+.dash-cal-more {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+

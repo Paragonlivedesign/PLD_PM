@@ -1,4 +1,5 @@
 import { getClientById } from "../clients/repository.js";
+import { getVenueById } from "../venues/repository.js";
 import { getEventById } from "../events/repository.js";
 import { getFieldsForSearch } from "../custom-fields/service.js";
 import { getTruckByIdInternal } from "../trucks/index.js";
@@ -53,14 +54,51 @@ export async function syncTruckSearchRow(pool, tenantId, truckId) {
         await removeFromIndex(pool, "trucks", truckId, tenantId);
         return;
     }
+    const searchable = await getFieldsForSearch(pool, tenantId, "truck");
+    const keySet = new Set(searchable.map((f) => f.field_key));
+    const weight_d = customFieldSearchParts(tr.custom_fields, keySet);
     await indexEntity(pool, "trucks", truckId, tenantId, {
         title: tr.name,
         subtitle: tr.type,
         search_fields: {
             weight_c: [tr.notes ? String(tr.notes) : ""],
+            weight_d,
         },
         metadata: { status: tr.status, type: tr.type },
         entity_updated_at: tr.updated_at,
+    });
+}
+export async function syncClientSearchRow(pool, tenantId, clientId) {
+    const row = await getClientById(pool, tenantId, clientId);
+    if (!row) {
+        await removeFromIndex(pool, "clients", clientId, tenantId);
+        return;
+    }
+    await indexEntity(pool, "clients", clientId, tenantId, {
+        title: row.name,
+        subtitle: row.contact_email ?? undefined,
+        search_fields: {
+            weight_c: [row.notes ? String(row.notes) : ""],
+        },
+        metadata: {},
+        entity_updated_at: row.updated_at,
+    });
+}
+export async function syncVenueSearchRow(pool, tenantId, venueId) {
+    const v = await getVenueById(pool, tenantId, venueId);
+    if (!v) {
+        await removeFromIndex(pool, "venues", venueId, tenantId);
+        return;
+    }
+    const parts = [v.address ? String(v.address) : "", v.notes ? String(v.notes) : ""].filter(Boolean);
+    await indexEntity(pool, "venues", venueId, tenantId, {
+        title: v.name,
+        subtitle: v.city ?? undefined,
+        search_fields: {
+            weight_c: parts.length ? parts : [""],
+        },
+        metadata: { city: v.city },
+        entity_updated_at: v.updated_at,
     });
 }
 export async function syncDocumentSearchRow(pool, tenantId, documentId) {

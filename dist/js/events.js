@@ -64,6 +64,16 @@ function onEventsSearchInput(value) {
   renderPage('events');
 }
 
+function pldContextMenuEventRow(domEvent, eventId) {
+  if (typeof window.pldShowContextMenu !== 'function') return;
+  const id = String(eventId || '');
+  if (!id) return;
+  window.pldShowContextMenu(domEvent.clientX, domEvent.clientY, [
+    { label: 'Open event', action: function () { navigateToEvent(id); } },
+    { label: 'Clone event…', action: function () { openCloneEventModal(id); } },
+  ]);
+}
+
 function renderEvents() {
   const filtered = getFilteredSortedEvents();
   const sortSelectVal =
@@ -131,7 +141,7 @@ function renderEvents() {
               const crew = Array.isArray(ev.crew) ? ev.crew : [];
               const pctSpent =
                 ev.budget > 0 ? Math.round((Number(ev.spent) / Number(ev.budget)) * 100) : 0;
-              return `<tr onclick="navigateToEvent('${ev.id}')">
+              return `<tr onclick="navigateToEvent('${ev.id}')" oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuEventRow(event,'${ev.id}');">
               <td><div style="font-weight:600;">${ev.name}</div></td>
               <td>${client.name}</td>
               <td><div>${venue.name}</div><div style="font-size:11px;color:var(--text-tertiary);">${venue.city}</div></td>

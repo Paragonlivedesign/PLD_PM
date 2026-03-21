@@ -8,6 +8,7 @@ import * as jwt from "./jwt.js";
 import * as pwd from "./password.js";
 import type { UserRow } from "./types.js";
 import { isPlatformAdminEmail } from "../platform/privilege.js";
+import { writeAuditLog } from "../audit/service.js";
 
 const LOCKOUT_THRESHOLD = Number(process.env.AUTH_LOCKOUT_THRESHOLD ?? "5");
 const LOCKOUT_MINUTES = Number(process.env.AUTH_LOCKOUT_MINUTES ?? "15");
@@ -117,6 +118,84 @@ async function issueTokens(user: UserRow): Promise<{
     expires_in: jwt.accessTokenTtlSeconds(),
     token_type: "Bearer",
   };
+}
+
+/** When `false`, `POST /auth/register` returns 403 (production lockdown). Default: allowed. */
+function isPublicRegisterAllowed(): boolean {
+  return String(process.env.AUTH_ALLOW_PUBLIC_REGISTER ?? "true").toLowerCase() !== "false";
+}
+
+export async function register(body: {
+  email?: string;
+  password?: string;
+  tenant_slug?: string;
+  first_name?: string;
+  last_name?: string;
+}): Promise<{
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: "Bearer";
+  user: ReturnType<typeof toUserProfileResponse>;
+}> {
+  if (!isPublicRegisterAllowed()) {
+    throw new HttpError(403, "FORBIDDEN", "Public registration is disabled");
+  }
+  const email = String(body.email ?? "").trim();
+  const password = String(body.password ?? "");
+  const tenant_slug = String(body.tenant_slug ?? "").trim();
+  const first_name = String(body.first_name ?? "").trim() || "User";
+  const last_name = String(body.last_name ?? "").trim() || "Member";
+  if (!email || !password || !tenant_slug) {
+    throw new HttpError(400, "VALIDATION", "email, password, and tenant_slug are required");
+  }
+  try {
+    pwd.assertPasswordPolicy(password);
+  } catch {
+    throw new HttpError(400, "VALIDATION", "Password does not meet policy", "password");
+  }
+  const tenant = await repo.findTenantBySlug(pool, tenant_slug);
+  if (!tenant?.is_active) {
+    throw new HttpError(400, "VALIDATION", "Unknown or inactive tenant", "tenant_slug");
+  }
+  const existing = await repo.findUserByEmail(pool, tenant.id, email);
+  if (existing) {
+    throw new HttpError(409, "CONFLICT", "An account with this email already exists");
+  }
+  const roleId = await repo.findRoleIdByTenantAndName(pool, tenant.id, "viewer");
+  if (!roleId) {
+    throw new HttpError(
+      503,
+      "SERVICE_UNAVAILABLE",
+      "Tenant is missing a viewer role; cannot register",
+    );
+  }
+  const hash = await pwd.hashPassword(password);
+  const userId = uuidv7();
+  await repo.insertUser(pool, {
+    id: userId,
+    tenantId: tenant.id,
+    email,
+    passwordHash: hash,
+    roleId,
+    personnelId: null,
+    firstName: first_name,
+    lastName: last_name,
+  });
+  const user = await repo.findUserById(pool, tenant.id, userId);
+  if (!user) throw new HttpError(500, "INTERNAL", "Failed to create user");
+  await cache.invalidateUserPermissions(user.tenant_id, user.id);
+  const tokens = await issueTokens(user);
+  const permissions = await resolvePermissionsForUser(user.tenant_id, user.id, user.role_id);
+  void writeAuditLog(pool, {
+    tenantId: tenant.id,
+    userId: user.id,
+    entityType: "user",
+    entityId: user.id,
+    action: "register",
+    changes: { after: { email: user.email } },
+  }).catch(() => undefined);
+  return { ...tokens, user: toUserProfileResponse(user, permissions) };
 }
 
 export async function login(body: {

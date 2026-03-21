@@ -8,6 +8,7 @@ import {
   requirePermission,
 } from "../../core/middleware.js";
 import {
+  computeTruckRouteApi,
   createTruck,
   createTruckRouteApi,
   createAssignmentViaTruck,
@@ -15,7 +16,10 @@ import {
   getTruckAvailability,
   getTruckRoutesForEvent,
   listAssignmentsForTruck,
+  listTruckRoutesApi,
   listTrucksApi,
+  mintTruckRouteShareApi,
+  refreshTruckRouteEtaApi,
   retireTruckApi,
   updateTruck,
   updateTruckRouteApi,
@@ -206,7 +210,7 @@ trucksRouter.delete(
   asyncHandler(async (req, res) => {
     const ctx = getContext();
     const id = String(req.params.id);
-    const r = await retireTruckApi(ctx.tenantId, id);
+    const r = await retireTruckApi(ctx.tenantId, id, ctx.userId);
     if (!r.ok) {
       res.status(r.status).json({
         data: null,
@@ -221,6 +225,83 @@ trucksRouter.delete(
 
 export const truckRoutesRouter = Router();
 truckRoutesRouter.use(requestContextMiddleware);
+
+truckRoutesRouter.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    const ctx = getContext();
+    const q = req.query;
+    const limit = Math.min(100, Math.max(1, Number(q.limit ?? 25) || 25));
+    const result = await listTruckRoutesApi({
+      tenantId: ctx.tenantId,
+      eventId: typeof q.event_id === "string" ? q.event_id : undefined,
+      truckId: typeof q.truck_id === "string" ? q.truck_id : undefined,
+      dateRangeStart:
+        typeof q.date_range_start === "string" ? q.date_range_start : undefined,
+      dateRangeEnd: typeof q.date_range_end === "string" ? q.date_range_end : undefined,
+      limit,
+      cursor: typeof q.cursor === "string" ? q.cursor : null,
+    });
+    res.status(200).json(ok(result.data, result.meta));
+  }),
+);
+
+truckRoutesRouter.post(
+  "/:id/compute-route",
+  requirePermission("trucks:route"),
+  asyncHandler(async (req, res) => {
+    const ctx = getContext();
+    const id = String(req.params.id);
+    const r = await computeTruckRouteApi({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      id,
+    });
+    if (!r.ok) {
+      res.status(r.status).json({ data: null, meta: null, errors: r.errors });
+      return;
+    }
+    res.status(200).json(ok(r.data, null));
+  }),
+);
+
+truckRoutesRouter.post(
+  "/:id/share",
+  requirePermission("trucks:route"),
+  asyncHandler(async (req, res) => {
+    const ctx = getContext();
+    const id = String(req.params.id);
+    const r = await mintTruckRouteShareApi({
+      tenantId: ctx.tenantId,
+      id,
+      body: (req.body ?? {}) as Record<string, unknown>,
+    });
+    if (!r.ok) {
+      res.status(r.status).json({ data: null, meta: null, errors: r.errors });
+      return;
+    }
+    res.status(200).json(ok(r.data, null));
+  }),
+);
+
+truckRoutesRouter.post(
+  "/:id/refresh-eta",
+  requirePermission("trucks:route"),
+  asyncHandler(async (req, res) => {
+    const ctx = getContext();
+    const id = String(req.params.id);
+    const r = await refreshTruckRouteEtaApi({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      id,
+    });
+    if (!r.ok) {
+      res.status(r.status).json({ data: null, meta: null, errors: r.errors });
+      return;
+    }
+    res.status(200).json(ok(r.data, null));
+  }),
+);
 
 truckRoutesRouter.post(
   "/",

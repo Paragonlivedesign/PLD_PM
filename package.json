@@ -21,6 +21,7 @@
     "test": "npm run test -w backend",
     "test:cp1": "npm run test -w backend -- tests/checkpoint1.api.integration.test.ts",
     "test:cp2": "npm run test -w backend -- tests/checkpoint2.workflow.integration.test.ts tests/checkpoint2.categories.integration.test.ts tests/checkpoint2-wave2-contracts.integration.test.ts",
+    "audit:extract-api-paths": "node scripts/audit-extract-api-paths.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",

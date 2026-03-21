@@ -15,6 +15,9 @@ import {
   listVenuesQuerySchema,
   updateVenueSchema,
 } from "./schemas.js";
+import { writeAuditLog } from "../audit/service.js";
+import { removeFromIndex } from "../search/service.js";
+import { syncVenueSearchRow } from "../search/sync-entity.js";
 import type { VenueResponse } from "@pld/shared";
 
 export const venuesRouter = Router();
@@ -70,6 +73,14 @@ venuesRouter.post(
         notes: body.notes ?? null,
         metadata: body.metadata ?? {},
       });
+      void writeAuditLog(pool, {
+        tenantId: req.ctx.tenantId,
+        userId: req.ctx.userId,
+        entityType: "venue",
+        entityId: id,
+        action: "create",
+        changes: { after: { name: body.name } },
+      }).catch(() => undefined);
       res.status(201).json(ok(row));
     } catch (e) {
       if (e instanceof ZodError) {
@@ -159,6 +170,15 @@ venuesRouter.put(
         res.status(404).json(singleError("not_found", "Venue not found", 404).body);
         return;
       }
+      void writeAuditLog(pool, {
+        tenantId: req.ctx.tenantId,
+        userId: req.ctx.userId,
+        entityType: "venue",
+        entityId: routeParam(req.params.id),
+        action: "update",
+        changes: { patch },
+      }).catch(() => undefined);
+      void syncVenueSearchRow(pool, req.ctx.tenantId, routeParam(req.params.id)).catch(() => undefined);
       res.json(ok(updated));
     } catch (e) {
       if (e instanceof ZodError) {
@@ -185,11 +205,21 @@ venuesRouter.delete(
       );
       return;
     }
-    const del = await repo.softDeleteVenue(pool, req.ctx.tenantId, routeParam(req.params.id));
+    const vid = routeParam(req.params.id);
+    const del = await repo.softDeleteVenue(pool, req.ctx.tenantId, vid);
     if (!del) {
       res.status(404).json(singleError("not_found", "Venue not found", 404).body);
       return;
     }
+    void writeAuditLog(pool, {
+      tenantId: req.ctx.tenantId,
+      userId: req.ctx.userId,
+      entityType: "venue",
+      entityId: vid,
+      action: "delete",
+      changes: {},
+    }).catch(() => undefined);
+    void removeFromIndex(pool, "venues", vid, req.ctx.tenantId).catch(() => undefined);
     res.json(ok(del));
   }),
 );

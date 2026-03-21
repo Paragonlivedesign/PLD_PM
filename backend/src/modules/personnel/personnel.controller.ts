@@ -29,7 +29,7 @@ personnelRouter.use(requestContextMiddleware);
 personnelRouter.get(
   "/",
   asyncHandler(async (req, res) => {
-    const out = await svc.listPersonnel(req.query as Record<string, string | undefined>);
+    const out = await svc.listPersonnel(req.query as Record<string, string | undefined>, req);
     res.status(200).json(ok(out.data, out.meta));
   }),
 );
@@ -38,7 +38,7 @@ personnelRouter.post(
   "/",
   requirePermission("personnel:create"),
   asyncHandler(async (req, res) => {
-    const data = await svc.createPersonnel(req.body as Record<string, unknown>);
+    const data = await svc.createPersonnel(req.body as Record<string, unknown>, req);
     res.status(201).json(ok(data));
   }),
 );
@@ -149,7 +149,7 @@ personnelRouter.get(
   asyncHandler(async (req, res) => {
     const id = paramId(req.params.id);
     assertUuid(id);
-    const data = await svc.getPersonnel(id);
+    const data = await svc.getPersonnel(id, req);
     res.status(200).json(ok(data));
   }),
 );
@@ -160,7 +160,7 @@ personnelRouter.put(
   asyncHandler(async (req, res) => {
     const id = paramId(req.params.id);
     assertUuid(id);
-    const data = await svc.updatePersonnel(id, req.body as Record<string, unknown>);
+    const data = await svc.updatePersonnel(id, req.body as Record<string, unknown>, req);
     res.status(200).json(ok(data));
   }),
 );

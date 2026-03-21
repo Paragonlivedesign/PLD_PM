@@ -7,7 +7,7 @@ This summarizes what each major surface uses after the mock-data audit. **Contra
 | Sidebar company name, tenant initials | `GET /api/v1/tenant` (`js/pld-tenant-shell.js`), cached in `window.__pldTenant` |
 | Top bar user initials | JWT user from `pldAuthGetUserJson()` (login payload); refreshed after `PUT /api/v1/auth/me` |
 | Account page | `GET`/`PUT /api/v1/auth/me` (`js/auth-pages.js`) |
-| Settings → General → company name | `PUT /api/v1/tenant` (requires `tenancy.settings.edit`) |
+| Settings → General | `GET /api/v1/tenant` (full `settings` needs `tenancy.settings.view` or `*`); save: `PUT /api/v1/tenant` with `name` + `settings` (`default_timezone`, `default_currency`, `features.scheduling`, `features.data_export`) — requires `tenancy.settings.edit` |
 | Financial overview — cost bars, by-category, recent rows | `GET /api/v1/reports/costs` (`group_by=category`), `GET /api/v1/financials` (`js/pld-financial-api.js`) |
 | Financial — budget by event | Hydrated `EVENTS` (from catalog sync) |
 | Dashboard KPIs | `EVENTS`, `PERSONNEL`, `ACTIVITY_LOG` from hydration; demo stat deltas removed |

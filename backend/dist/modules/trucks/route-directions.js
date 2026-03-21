@@ -82,18 +82,21 @@ export async function computeRouteDirections(points) {
                 origin: { location: { latLng: { latitude: points[0].lat, longitude: points[0].lng } } },
                 destination: {
                     location: {
-                        latLng: { latitude: points[points.length - 1].lat, longitude: points[points.length - 1].lng },
+                        latLng: {
+                            latitude: points[points.length - 1].lat,
+                            longitude: points[points.length - 1].lng,
+                        },
                     },
                 },
-                intermediates: points.length > 2
-                    ? points.slice(1, -1).map((p) => ({
-                        location: { latLng: { latitude: p.lat, longitude: p.lng } },
-                    }))
-                    : [],
                 travelMode: "DRIVE",
                 routingPreference: "TRAFFIC_AWARE",
                 polylineQuality: "OVERVIEW",
             };
+            if (points.length > 2) {
+                body.intermediates = points.slice(1, -1).map((p) => ({
+                    location: { latLng: { latitude: p.lat, longitude: p.lng } },
+                }));
+            }
             const r = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
                 method: "POST",
                 headers: {

@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { getTenantConfig } from "../tenancy/tenancy.service.js";
+import { tenantAuditLoggingEnabledResolved } from "../tenancy/tenant-settings.js";
 import * as repo from "./repository.js";
 export async function writeAuditLog(pool, input) {
+    const cfg = await getTenantConfig(input.tenantId);
+    if (!tenantAuditLoggingEnabledResolved(cfg))
+        return;
     await repo.insertAuditLog(pool, {
         id: randomUUID(),
         tenantId: input.tenantId,

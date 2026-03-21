@@ -57,6 +57,16 @@ export async function recipientsForTruckAssignment(
   return dedupeUsers([owner], actorUserId);
 }
 
+/** Truck route delay / ETA alerts: event owner (same as truck assignment). */
+export async function recipientsForRouteEta(
+  pool: Pool,
+  tenantId: string,
+  eventId: string,
+  actorUserId: string,
+): Promise<string[]> {
+  return recipientsForTruckAssignment(pool, tenantId, eventId, actorUserId);
+}
+
 /** Phase change: event owner, not the user who changed phase. */
 export async function recipientsForPhaseTransition(
   pool: Pool,

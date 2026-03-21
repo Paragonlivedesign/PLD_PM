@@ -8,11 +8,11 @@ Use the **Planning** repo (`planning-docs/master/orchestration/agents/orchestrat
 
 ## Current repo state
 
-This monorepo is **Wave 0 started**: scaffold, contracts copied, minimal API + Vite shell, Docker for Postgres/Redis, CI build, Cursor rules.
+This monorepo ships **Postgres-backed Express** (`backend/`), **Vite** UI at repo root (`index.html`, `js/`), **`shared/`** types, **`contracts/`**, CI, and Firebase optional paths. Many Planning waves are **partially** implemented in code; authoritative tracking lives in Planning `master-checklist.md`.
 
-**Next:** Foundation Agent completes auth, tenancy, migrations, envelope middleware, domain event bus, and `shared/types` from `domain-model.md`.
+**In-repo engineering TODO:** [`docs/BACKLOG-TODO.md`](./BACKLOG-TODO.md). **Last reconciliation note:** [`docs/agent-reconciliation-2026-03-22.md`](./agent-reconciliation-2026-03-22.md).
 
-**Then:** Checkpoint 0 → **Wave 1** parallel agents (Events, Personnel, Trucks, Custom Fields) per `phased-roadmap.md`.
+**Still heavy lifts (summary):** formal checkpoint sign-off (human), integrations module, broader E2E, financial payments, scheduling views, analytics/collaboration depth — see Planning + `BACKLOG-TODO.md`.
 
 ## How to run a module agent in Cursor
 

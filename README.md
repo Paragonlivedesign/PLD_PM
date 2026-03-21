@@ -31,3 +31,7 @@ Use **`npm run dev`** when you are exercising the modular API + Vite UI together
 Data in the Firebase flow is **Firestore** (loaded via `js/pld-firebase.js`); rules in `firestore.rules` / `storage.rules` require auth; the app uses **anonymous** sign-in on localhost.
 
 Details: [docs/emulators-and-testing.md](docs/emulators-and-testing.md). Document merge placeholders: [docs/template-variables.md](docs/template-variables.md).
+
+**Concepts:** [docs/personnel-vs-crew-glossary.md](docs/personnel-vs-crew-glossary.md) (personnel roster vs crew assignments vs CRM contacts). Optional designs: [docs/design-personnel-category-eligibility.md](docs/design-personnel-category-eligibility.md), [docs/design-client-contacts.md](docs/design-client-contacts.md).
+
+**Backlog / checkpoints:** [docs/BACKLOG-TODO.md](docs/BACKLOG-TODO.md) (engineering TODO), [docs/agent-reconciliation-2026-03-22.md](docs/agent-reconciliation-2026-03-22.md) (CP1/CP2 + shipped features), [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md) (Planning pointers).

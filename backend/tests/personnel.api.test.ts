@@ -51,6 +51,16 @@ describe("personnel HTTP API", () => {
       if (!tenants.rows[0]?.t) {
         await pool.query(readMigration("005_tenancy.sql"));
       }
+      const photoCol = await pool.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'personnel' AND column_name = 'photo_document_id'`,
+      );
+      if (photoCol.rows.length === 0) {
+        const hasDoc = await pool.query(`SELECT to_regclass('public.documents') AS t`);
+        if (!hasDoc.rows[0]?.t) {
+          await pool.query(readMigration("003_documents_module.sql"));
+        }
+        await pool.query(readMigration("013_personnel_photo_document.sql"));
+      }
     } catch {
       skip = true;
     }
@@ -175,5 +185,43 @@ describe("personnel HTTP API", () => {
         await pool.query(`DELETE FROM personnel WHERE tenant_id = $1 AND id = $2`, [TENANT, row.id]);
       }
     }
+  });
+
+  it("POST/GET personnel with photo_document_id returns photo_url", async () => {
+    if (skip) return;
+    const docId = uuidv7();
+    await pool.query(
+      `INSERT INTO documents (
+        id, tenant_id, event_id, entity_type, entity_id, category, name, description,
+        source, visibility, mime_type, size_bytes, storage_key, tags, doc_version, uploaded_by, processing_status
+      ) VALUES ($1, $2, NULL, NULL, NULL, 'photo', 't.png', NULL,
+        'uploaded', 'internal', 'image/png', 8, 'vitest/photo.png', '[]'::jsonb, 1, $3, 'complete')`,
+      [docId, TENANT, USER],
+    );
+    const email = `photo-${uuidv7()}@example.com`;
+    const create = await request(app)
+      .post("/api/v1/personnel")
+      .set(headers)
+      .send({
+        first_name: "Pic",
+        last_name: "Test",
+        email,
+        role: "Camera",
+        employment_type: "freelance",
+        photo_document_id: docId,
+      });
+    expect(create.status).toBe(201);
+    expect(create.body.data?.photo_document_id).toBe(docId);
+    expect(String(create.body.data?.photo_url || "")).toContain("/api/v1/documents/");
+    expect(String(create.body.data?.photo_url || "")).toContain("token=");
+
+    const list = await request(app).get("/api/v1/personnel?limit=5").set(headers);
+    expect(list.status).toBe(200);
+    const row = (list.body.data as { photo_url?: string; email?: string }[]).find((x) => x.email === email);
+    expect(row?.photo_url).toBeTruthy();
+
+    const pid = create.body.data?.id as string;
+    await pool.query(`DELETE FROM personnel WHERE tenant_id = $1 AND id = $2`, [TENANT, pid]);
+    await pool.query(`DELETE FROM documents WHERE tenant_id = $1 AND id = $2`, [TENANT, docId]);
   });
 });

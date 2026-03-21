@@ -68,25 +68,57 @@
     return true;
   };
 
-  /** @returns {Promise<Array<Record<string, unknown>>>} */
-  global.pldListVendorsFromApi = async function () {
+  /** @param {string} [search]
+   * @returns {Promise<Array<Record<string, unknown>>>}
+   */
+  global.pldListVendorsFromApi = async function (search) {
     if (typeof global.pldApiFetch !== 'function') return [];
-    const res = await global.pldApiFetch('/api/v1/vendors?limit=200', { method: 'GET' });
+    const q = new URLSearchParams({ limit: '200' });
+    const term = search != null ? String(search).trim() : '';
+    if (term) q.set('search', term);
+    const res = await global.pldApiFetch('/api/v1/vendors?' + q.toString(), { method: 'GET' });
     if (!res.ok) return [];
     const d = res.body && res.body.data;
     return Array.isArray(d) ? d : [];
   };
 
-  global.pldUpdateVendorLinkedClient = async function (vendorId, linkedClientId) {
-    const res = await global.pldApiFetch('/api/v1/vendors/' + encodeURIComponent(vendorId), {
-      method: 'PUT',
-      body: JSON.stringify({ linked_client_id: linkedClientId }),
+  global.pldCreateVendorViaApi = async function (payload) {
+    const res = await global.pldApiFetch('/api/v1/vendors', {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
     });
     if (!res.ok) {
       if (typeof showToast === 'function') showToast(errMsg(res), 'error');
       return null;
     }
     return res.body && res.body.data ? res.body.data : null;
+  };
+
+  global.pldUpdateVendorViaApi = async function (vendorId, body) {
+    const res = await global.pldApiFetch('/api/v1/vendors/' + encodeURIComponent(vendorId), {
+      method: 'PUT',
+      body: JSON.stringify(body || {}),
+    });
+    if (!res.ok) {
+      if (typeof showToast === 'function') showToast(errMsg(res), 'error');
+      return null;
+    }
+    return res.body && res.body.data ? res.body.data : null;
+  };
+
+  global.pldDeleteVendorViaApi = async function (vendorId) {
+    const res = await global.pldApiFetch('/api/v1/vendors/' + encodeURIComponent(vendorId), {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      if (typeof showToast === 'function') showToast(errMsg(res), 'error');
+      return false;
+    }
+    return true;
+  };
+
+  global.pldUpdateVendorLinkedClient = async function (vendorId, linkedClientId) {
+    return global.pldUpdateVendorViaApi(vendorId, { linked_client_id: linkedClientId || null });
   };
 
   global.pldFetchMeCrewAssignments = async function (query) {

@@ -22,11 +22,11 @@ function paramId(p) {
 export const personnelRouter = Router();
 personnelRouter.use(requestContextMiddleware);
 personnelRouter.get("/", asyncHandler(async (req, res) => {
-    const out = await svc.listPersonnel(req.query);
+    const out = await svc.listPersonnel(req.query, req);
     res.status(200).json(ok(out.data, out.meta));
 }));
 personnelRouter.post("/", requirePermission("personnel:create"), asyncHandler(async (req, res) => {
-    const data = await svc.createPersonnel(req.body);
+    const data = await svc.createPersonnel(req.body, req);
     res.status(201).json(ok(data));
 }));
 personnelRouter.get("/availability", asyncHandler(async (req, res) => {
@@ -102,13 +102,13 @@ personnelRouter.get("/:id/travel", asyncHandler(async (req, res) => {
 personnelRouter.get("/:id", asyncHandler(async (req, res) => {
     const id = paramId(req.params.id);
     assertUuid(id);
-    const data = await svc.getPersonnel(id);
+    const data = await svc.getPersonnel(id, req);
     res.status(200).json(ok(data));
 }));
 personnelRouter.put("/:id", requirePermission("personnel:update"), asyncHandler(async (req, res) => {
     const id = paramId(req.params.id);
     assertUuid(id);
-    const data = await svc.updatePersonnel(id, req.body);
+    const data = await svc.updatePersonnel(id, req.body, req);
     res.status(200).json(ok(data));
 }));
 personnelRouter.delete("/:id", requirePermission("personnel:delete"), asyncHandler(async (req, res) => {

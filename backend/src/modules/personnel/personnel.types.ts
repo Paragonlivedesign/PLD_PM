@@ -24,11 +24,17 @@ export type PersonnelResponse = {
   status: PersonnelStatus;
   emergency_contact: EmergencyContact | null;
   metadata: Record<string, unknown>;
+  custom_fields: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   deactivated_at: string | null;
   /** Row version for optimistic locking on PUT (send last seen value as `version`). */
   version: number;
+  /** Uploaded headshot — `documents` row (category `photo`, image mime). */
+  photo_document_id: string | null;
+  /** Time-limited URL to load the image (only set on HTTP list/get when a photo exists). */
+  photo_url: string | null;
+  photo_url_expires_at: string | null;
 };
 
 /** Alias — same shape as API row (includes `version`). */
