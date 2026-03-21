@@ -1,0 +1,13 @@
+---
+description: Backend modular monolith — Express/Node patterns for PLD
+globs: "backend/**/*"
+alwaysApply: false
+---
+
+# Backend
+
+- One folder per module under `backend/src/modules/<name>/`.
+- Other modules import only from a module’s **public** `index.ts`.
+- **Core** (`backend/src/core/`): auth middleware, tenant resolution, error wrapper, logging — Foundation owns until stable.
+- Prefer explicit validation on inputs; map domain errors to standard API error shape.
+- No secrets in code; use `process.env` + `.env.example` updates.

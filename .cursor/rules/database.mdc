@@ -1,0 +1,11 @@
+---
+description: Migrations and SQL discipline
+globs: "database/**/*"
+alwaysApply: false
+---
+
+# Database
+
+- Migrations are **sequential** and **global** (not per-agent parallel files) — Infra/Foundation coordinates order.
+- Every tenant-scoped table includes `tenant_id` when multi-tenant model applies.
+- Document new tables/columns in the relevant module contract when behavior is user-visible.

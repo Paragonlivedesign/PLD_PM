@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    App Shell
    ============================================ */
 .app {
@@ -215,6 +215,26 @@
   box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
 }
 
+.presence-dot.pending {
+  background: var(--text-tertiary);
+  opacity: 0.85;
+  animation: pld-presence-pulse 1.2s ease-in-out infinite;
+}
+
+.presence-dot.offline {
+  background: var(--border-default);
+}
+
+@keyframes pld-presence-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .sidebar-collapse-btn {
   background: none;
   border: none;
@@ -327,6 +347,89 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* API connection + session (top bar) */
+.pld-api-status-bar {
+  align-items: center;
+  gap: 8px;
+  margin-right: 4px;
+  flex-wrap: wrap;
+  max-width: min(420px, 42vw);
+}
+
+.pld-api-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pld-api-status-pill--session {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--text-primary);
+}
+
+.pld-api-status-pill--ok {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--text-primary);
+}
+
+.pld-api-status-pill--warn {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+  color: var(--text-secondary);
+}
+
+.pld-api-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  flex-shrink: 0;
+}
+
+.pld-api-status-dot--ok {
+  background: var(--accent-blue);
+}
+
+.pld-api-status-dot--warn {
+  background: var(--accent-amber);
+}
+
+.pld-api-status-email {
+  font-weight: 400;
+  color: var(--text-tertiary);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pld-api-status-meta {
+  font-size: 11px;
+  color: var(--accent-green);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pld-platform-admin-top {
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+
+.pld-platform-admin-top:hover {
+  color: var(--accent-cyan);
+  background: var(--bg-hover);
 }
 
 .topbar-icon-btn {

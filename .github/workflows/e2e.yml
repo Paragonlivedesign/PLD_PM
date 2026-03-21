@@ -18,6 +18,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install chromium --with-deps
-      - run: npm run test:e2e
+      - run: npx firebase emulators:exec --only firestore,auth,storage,hosting --project demo-pld-pm "npm run seed && npx playwright test"
         env:
           CI: true

@@ -2,16 +2,40 @@
   "name": "pld-pm",
   "type": "module",
   "private": true,
-  "description": "Paragon Live Design — production management UI (PLD_PM)",
+  "description": "Paragon Live Design — PLD_PM (UI + Firebase + backend + shared types)",
+  "workspaces": [
+    "backend",
+    "shared"
+  ],
   "scripts": {
-    "emulators": "firebase emulators:start --only hosting,auth,ui",
+    "dev": "concurrently -n api,ui -c blue,green \"npm run dev -w backend\" \"vite\"",
+    "build": "npm run build -w shared && npm run build -w backend && vite build && node scripts/copy-static-to-dist.mjs",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w backend",
+    "emulators": "firebase emulators:start --only hosting,firestore,auth,storage,ui",
     "emulators:hosting": "firebase emulators:start --only hosting",
+    "seed": "cross-env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/seed-firestore.mjs",
+    "clear:firestore": "cross-env FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 node scripts/clear-firestore.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:seed": "node scripts/seed-postgres.mjs",
+    "lint": "eslint backend/src shared/src --max-warnings 8",
+    "test": "npm run test -w backend",
+    "test:cp1": "npm run test -w backend -- tests/checkpoint1.api.integration.test.ts",
+    "test:cp2": "npm run test -w backend -- tests/checkpoint2.workflow.integration.test.ts tests/checkpoint2.categories.integration.test.ts tests/checkpoint2-wave2-contracts.integration.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:api": "node --test backend/tests/trucks-api.test.mjs",
+    "cp2:smoke": "node scripts/cp2-workflow-smoke.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.51.0",
-    "firebase-tools": "^13.35.0"
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "eslint": "^10.1.0",
+    "firebase-admin": "^12.7.0",
+    "firebase-tools": "^13.35.0",
+    "typescript-eslint": "^8.57.1",
+    "vite": "^6.0.11"
   }
 }

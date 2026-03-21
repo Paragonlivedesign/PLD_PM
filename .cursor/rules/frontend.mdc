@@ -1,0 +1,12 @@
+---
+description: Frontend SPA — align with PLD_PM UX reference
+globs: "frontend/**/*"
+alwaysApply: false
+---
+
+# Frontend
+
+- **UX reference:** Desktop `PLD_PM` prototype (routes, density, module boundaries).
+- Call API via a small typed client layer; avoid scattering `fetch` without central error handling.
+- Production build targets Firebase Hosting site for `pm.paragonlivedesign.com` (see Planning deployment notes).
+- Use env `VITE_API_URL` (or stack equivalent) for API base URL.

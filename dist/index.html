@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PostgreSQL REST API (default local). Clear content="" to use Firestore seed only for personnel. -->
+  <meta name="pld-api-base" content="http://127.0.0.1:3000">
+  <title>Production Manager — PLD_PM</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    #pld-boot-error { position: fixed; top: 0; left: 0; right: 0; z-index: 99999; padding: 12px 16px; background: #b91c1c; color: #fff; font-size: 14px; text-align: center; }
+    #pld-boot-error.hidden { display: none; }
+  </style>
+  <link rel="stylesheet" crossorigin href="/assets/index-CdrQoWZm.css">
+</head>
+<body>
+  <div id="pld-boot-error" class="pld-boot-error hidden" role="alert"></div>
+  <!-- Command Palette (Cmd+K) -->
+  <div id="commandPalette" class="command-palette hidden">
+    <div class="command-palette-backdrop"></div>
+    <div class="command-palette-dialog">
+      <div class="command-palette-input-wrap">
+        <svg class="command-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="commandInput" placeholder="Search events, crew, trucks, commands…" autocomplete="off">
+        <kbd>ESC</kbd>
+      </div>
+      <div class="command-palette-results" id="commandResults"></div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- App Shell -->
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <div class="logo-icon">PM</div>
+          <span class="logo-text">Production Manager</span>
+        </div>
+      </div>
+
+      <div class="sidebar-tenant">
+        <div class="tenant-badge" onclick="openCompanyProfile()">
+          <span class="tenant-avatar">—</span>
+          <div class="tenant-info">
+            <span class="tenant-name">…</span>
+            <span class="tenant-role">—</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <span class="nav-section-label">Overview</span>
+          <a href="javascript:void(0)" class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <span>Dashboard</span>
+          </a>
+        </div>
+        <div class="nav-section">
+          <span class="nav-section-label">Production</span>
+          <a href="javascript:void(0)" class="nav-item" data-page="events" onclick="navigateTo('events'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <span>Events</span>
+            <span class="nav-badge" id="navBadgeEvents" hidden aria-live="polite"></span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="scheduling" onclick="navigateTo('scheduling'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+            <span>Scheduling</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="personnel" onclick="navigateTo('personnel'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Personnel</span>
+            <span class="nav-badge" id="navBadgePersonnel" hidden aria-live="polite"></span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="trucks" onclick="navigateTo('trucks'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            <span>Trucks</span>
+          </a>
+        </div>
+        <div class="nav-section">
+          <span class="nav-section-label">Operations</span>
+          <a href="javascript:void(0)" class="nav-item" data-page="clients" onclick="navigateTo('clients'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v0"/><path d="M9 12v0"/><path d="M9 15v0"/><path d="M9 18v0"/></svg>
+            <span>Clients</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="venues" onclick="navigateTo('venues'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span>Venues</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="vendors" onclick="navigateTo('vendors'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            <span>Vendors</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="travel" onclick="navigateTo('travel'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.4-.1.9.3 1.1l5.2 3 L6 14l-2.5-.5c-.3-.1-.7.1-.8.4l-.2.4c-.2.4 0 .8.3 1l3.3 2.1 2.1 3.3c.2.3.6.5 1 .3l.4-.2c.3-.2.5-.5.4-.8L9.5 18l2.9-2.9 3 5.2c.2.4.7.5 1.1.3l.5-.3c.4-.2.6-.6.5-1.1z"/></svg>
+            <span>Travel</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="financial" onclick="navigateTo('financial'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span>Financial</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="documents" onclick="navigateTo('documents'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Documents</span>
+          </a>
+        </div>
+        <div class="nav-section">
+          <span class="nav-section-label">System</span>
+          <a href="javascript:void(0)" class="nav-item" id="navPlatformAdmin" data-page="platform-admin" style="display:none;" onclick="navigateTo('platform-admin'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span>Master admin</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="settings" onclick="navigateTo('settings'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Settings</span>
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="presence-indicator" title="Active connections in this tenant (PostgreSQL API WebSocket)">
+          <div class="presence-dot pending" aria-hidden="true"></div>
+          <span id="pldPresenceLabel">Connecting…</span>
+        </div>
+        <button class="sidebar-collapse-btn" id="sidebarToggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11,17 6,12 11,7"/><polyline points="18,17 13,12 18,7"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="topbar-menu-btn" id="menuToggle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div class="breadcrumb" id="breadcrumb">
+            <span class="breadcrumb-item">Dashboard</span>
+          </div>
+        </div>
+        <div class="topbar-center">
+          <button class="search-trigger" id="searchTrigger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <span>Search…</span>
+            <kbd>Ctrl+K</kbd>
+          </button>
+        </div>
+        <div class="topbar-right">
+          <div id="pldApiStatusBar" class="pld-api-status-bar" style="display:none;" aria-live="polite"></div>
+          <button type="button" id="pldPlatformAdminTopBtn" class="btn btn-ghost btn-sm pld-platform-admin-top" style="display:none;flex-shrink:0;" title="Master admin — tenants and users (platform)" onclick="navigateTo('platform-admin');" aria-label="Open master admin">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="vertical-align:middle;margin-right:4px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span style="font-size:12px;font-weight:500;">Admin</span>
+          </button>
+          <button class="topbar-icon-btn" id="notificationBtn" type="button" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="notification-dot" id="notificationUnreadDot" hidden aria-hidden="true"></span>
+          </button>
+          <div class="topbar-avatar">
+            <span>—</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Page Content Area -->
+      <div class="page-content" id="pageContent">
+        <!-- Pages rendered here by JS -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Overlay -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-header" id="modalHeader">
+        <h3 id="modalTitle">Modal</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="data.js"></script>
+  <script src="js/pld-auth-session.js"></script>
+  <script src="js/pld-api.js"></script>
+  <script src="js/pld-crm-api.js"></script>
+  <script src="js/pld-presence-ws.js"></script>
+  <script src="js/pld-tenant-shell.js"></script>
+  <script src="js/auth-pages.js"></script>
+  <script src="js/pld-events-sync.js?v=pldm-newclient-2"></script>
+  <script src="js/pld-scheduling-api.js"></script>
+  <script src="js/pld-travel-api.js"></script>
+  <script src="js/pld-dashboard-api.js"></script>
+  <script src="js/pld-financial-api.js"></script>
+  <script src="js/pld-scheduling-sheet.js"></script>
+  <script src="js/pld-notifications-api.js"></script>
+  <script src="js/pld-persist.js"></script>
+  <script src="js/pld-firebase.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/ui-icons.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/modal.js"></script>
+  <script src="js/pld-personnel-api.js"></script>
+  <script src="js/navigation.js"></script>
+  <script src="js/topbar.js"></script>
+  <script src="js/command-palette.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/events.js?v=pldm-newclient-2"></script>
+  <script src="js/scheduling.js"></script>
+  <script src="js/event-page.js"></script>
+  <script src="js/running-schedule.js"></script>
+  <script src="js/daily-schedule.js"></script>
+  <script src="js/event-paperwork.js"></script>
+  <script src="js/personnel.js"></script>
+  <script src="js/trucks.js"></script>
+  <script src="js/travel.js"></script>
+  <script src="js/financial.js"></script>
+  <script src="js/documents.js"></script>
+  <script src="js/clients.js"></script>
+  <script src="js/venues.js"></script>
+  <script src="js/vendors.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/profile.js"></script>
+  <script src="js/modals.js"></script>
+  <script src="js/custom-fields.js"></script>
+  <script src="js/platform-admin.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/init.js"></script>
+</body>
+</html>

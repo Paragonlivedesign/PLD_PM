@@ -209,23 +209,32 @@
   border-right: none;
 }
 
-.rs-cell.hotel-cell:not(:empty) {
+.rs-cell.hotel-cell.rs-has-content {
   background: rgba(139, 92, 246, 0.08);
   color: var(--accent-purple, #8b5cf6);
 }
 
-.rs-cell.flight-cell:not(:empty) {
+.rs-cell.flight-cell.rs-has-content {
   background: rgba(59, 130, 246, 0.08);
   color: var(--accent-blue);
 }
 
+.rs-cell.rs-data-cell {
+  cursor: pointer;
+}
+
+.rs-cell.rs-default-show-day {
+  font-style: italic;
+  color: var(--text-tertiary);
+}
+
 /* Highlight cells that have content */
-.rs-cell:not(.rs-header):not(.rs-row-label):not(.rs-section-label):not(.rs-phase-cell):not(.rs-corner):not(:empty) {
+.rs-cell:not(.rs-header):not(.rs-row-label):not(.rs-section-label):not(.rs-phase-cell):not(.rs-corner).rs-has-content {
   font-weight: 500;
 }
 
-/* Hover row highlight */
-.rs-grid .rs-cell:not(.rs-header):not(.rs-section-label):not(.rs-phase-cell):hover {
+/* Hover — data cells (including empty placeholders) */
+.rs-grid .rs-cell.rs-data-cell:hover {
   background: var(--bg-hover);
   cursor: pointer;
 }
@@ -426,6 +435,46 @@
 /* ============================================
    Daily Schedule (Call Sheet / Show Paperwork)
    ============================================ */
+.ds-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+.ds-toolbar-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.ds-toolbar-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.ds-toolbar select.form-select,
+.ds-toolbar .form-select {
+  min-width: 220px;
+  font-size: 13px;
+}
+.ds-day-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px 2px;
+}
+.ds-day-actions .btn {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
 .ds-container {
   overflow-x: auto;
 }

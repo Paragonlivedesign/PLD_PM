@@ -1,0 +1,133 @@
+import { Router } from "express";
+import { ZodError } from "zod";
+import { v7 as uuidv7 } from "uuid";
+import { ok, singleError } from "../../http/envelope.js";
+import { pool } from "../../db/pool.js";
+import { asyncHandler, requirePermission, } from "../../core/middleware.js";
+import { routeParam } from "../../core/route-params.js";
+import { createContactsNestedRouter } from "../contacts/nested-routes.js";
+import * as repo from "./repository.js";
+import { createVenueSchema, listVenuesQuerySchema, updateVenueSchema, } from "./schemas.js";
+export const venuesRouter = Router();
+venuesRouter.use("/:venueId/contacts", createContactsNestedRouter({
+    parentType: "venue",
+    paramKey: "venueId",
+    readPerm: "venues:read",
+    writePerm: "venues:update",
+}));
+function encodeCursor(v) {
+    return Buffer.from(JSON.stringify({ u: v.updated_at, id: v.id }), "utf8").toString("base64url");
+}
+function decodeCursor(raw) {
+    if (!raw?.trim())
+        return null;
+    try {
+        const j = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
+        if (j.u && j.id)
+            return { u: j.u, id: j.id };
+    }
+    catch {
+        return null;
+    }
+    return null;
+}
+venuesRouter.post("/", requirePermission("venues:create"), asyncHandler(async (req, res) => {
+    try {
+        const body = createVenueSchema.parse(req.body);
+        const id = uuidv7();
+        const row = await repo.insertVenue(pool, {
+            id,
+            tenantId: req.ctx.tenantId,
+            name: body.name,
+            city: body.city ?? null,
+            address: body.address ?? null,
+            latitude: body.latitude ?? null,
+            longitude: body.longitude ?? null,
+            timezone: body.timezone ?? null,
+            notes: body.notes ?? null,
+            metadata: body.metadata ?? {},
+        });
+        res.status(201).json(ok(row));
+    }
+    catch (e) {
+        if (e instanceof ZodError) {
+            res.status(400).json(singleError("validation", e.message, 400).body);
+            return;
+        }
+        throw e;
+    }
+}));
+venuesRouter.get("/", requirePermission("venues:read"), asyncHandler(async (req, res) => {
+    try {
+        const q = listVenuesQuerySchema.parse(req.query);
+        const limit = q.limit ?? 25;
+        const dec = decodeCursor(q.cursor);
+        const rows = await repo.listVenues(pool, req.ctx.tenantId, q.search, limit + 1, dec?.u ?? null, dec?.id ?? null);
+        const total = await repo.countVenues(pool, req.ctx.tenantId, q.search);
+        const hasMore = rows.length > limit;
+        const page = hasMore ? rows.slice(0, limit) : rows;
+        const next = hasMore && page.length ? encodeCursor(page[page.length - 1]) : null;
+        res.json({
+            data: page,
+            meta: { cursor: next, has_more: next != null, total_count: total },
+            errors: null,
+        });
+    }
+    catch (e) {
+        if (e instanceof ZodError) {
+            res.status(400).json(singleError("validation", e.message, 400).body);
+            return;
+        }
+        throw e;
+    }
+}));
+venuesRouter.get("/:id", requirePermission("venues:read"), asyncHandler(async (req, res) => {
+    const row = await repo.getVenueById(pool, req.ctx.tenantId, routeParam(req.params.id));
+    if (!row) {
+        res.status(404).json(singleError("not_found", "Venue not found", 404).body);
+        return;
+    }
+    res.json(ok(row));
+}));
+venuesRouter.put("/:id", requirePermission("venues:update"), asyncHandler(async (req, res) => {
+    try {
+        const body = updateVenueSchema.parse(req.body);
+        const patch = { ...body };
+        const expected = patch.updated_at;
+        delete patch.updated_at;
+        if (Object.keys(patch).length === 0) {
+            res.status(400).json(singleError("validation", "No fields to update", 400).body);
+            return;
+        }
+        const updated = await repo.updateVenueRow(pool, req.ctx.tenantId, routeParam(req.params.id), patch, expected);
+        if (!updated && expected) {
+            res.status(409).json(singleError("conflict", "Conflicting update (stale updated_at)", 409).body);
+            return;
+        }
+        if (!updated) {
+            res.status(404).json(singleError("not_found", "Venue not found", 404).body);
+            return;
+        }
+        res.json(ok(updated));
+    }
+    catch (e) {
+        if (e instanceof ZodError) {
+            res.status(400).json(singleError("validation", e.message, 400).body);
+            return;
+        }
+        throw e;
+    }
+}));
+venuesRouter.delete("/:id", requirePermission("venues:delete"), asyncHandler(async (req, res) => {
+    const n = await repo.countEventsForVenue(pool, req.ctx.tenantId, routeParam(req.params.id));
+    if (n > 0) {
+        res.status(409).json(singleError("conflict", "Venue has events; cannot delete", 409).body);
+        return;
+    }
+    const del = await repo.softDeleteVenue(pool, req.ctx.tenantId, routeParam(req.params.id));
+    if (!del) {
+        res.status(404).json(singleError("not_found", "Venue not found", 404).body);
+        return;
+    }
+    res.json(ok(del));
+}));

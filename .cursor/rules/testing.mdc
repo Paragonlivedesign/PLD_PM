@@ -1,0 +1,11 @@
+---
+description: Testing expectations for PLD
+globs: "**/*.test.ts,**/*.spec.ts,**/tests/**/*"
+alwaysApply: false
+---
+
+# Testing
+
+- Unit tests live near modules; integration tests cross module seams per `integration-checkpoints.md` in Planning.
+- E2E: PLD_PM uses Playwright + Firebase emulators; monorepo E2E to be added as features stabilize.
+- CI must stay green before merging to `main`.

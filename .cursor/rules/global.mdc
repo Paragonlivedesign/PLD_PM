@@ -1,0 +1,15 @@
+---
+description: PLD universal standards — API envelope, IDs, multi-tenant discipline
+globs: "**/*"
+alwaysApply: true
+---
+
+# PLD global rules
+
+- **API responses** use `{ data, meta, errors }`. Errors: `{ code, message, details? }`.
+- **IDs:** UUIDs for entities unless contract specifies otherwise.
+- **Timestamps:** UTC.
+- **Money:** store amount + currency code.
+- **Tenant:** every data access path must support `tenant_id` scoping when persistence exists (Wave 0+).
+- **Module isolation:** do not read another module’s tables/files directly; use public `index.ts` exports or HTTP internal APIs per Planning `agent-development-strategy.md`.
+- **Contracts:** `contracts/*.contract.md` is authoritative; implementation must match.

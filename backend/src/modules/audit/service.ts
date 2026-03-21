@@ -1,0 +1,89 @@
+import { randomUUID } from "node:crypto";
+import type { Pool } from "pg";
+import * as repo from "./repository.js";
+
+export async function writeAuditLog(
+  pool: Pool,
+  input: {
+    tenantId: string;
+    userId: string | null;
+    entityType: string;
+    entityId: string;
+    action: string;
+    changes?: unknown;
+    correlationId?: string | null;
+    ipAddress?: string | null;
+  },
+): Promise<void> {
+  await repo.insertAuditLog(pool, {
+    id: randomUUID(),
+    tenantId: input.tenantId,
+    userId: input.userId,
+    entityType: input.entityType,
+    entityId: input.entityId,
+    action: input.action,
+    changes: input.changes,
+    correlationId: input.correlationId ?? null,
+    ipAddress: input.ipAddress ?? null,
+  });
+}
+
+function isPgUndefinedTable(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "code" in e &&
+    (e as { code?: string }).code === "42P01"
+  );
+}
+
+export async function listAuditLogsApi(
+  pool: Pool,
+  tenantId: string,
+  q: Record<string, string | undefined>,
+): Promise<{ data: unknown[]; meta: Record<string, unknown> }> {
+  const limit = Math.min(100, Math.max(1, Number(q.limit ?? 25) || 25));
+  const offset = Math.max(0, Number(q.offset ?? 0) || 0);
+  let rows: Awaited<ReturnType<typeof repo.listAuditLogs>>["rows"];
+  let total: number;
+  try {
+    const out = await repo.listAuditLogs(pool, {
+      tenantId,
+      entityType: q.entity_type,
+      entityId: q.entity_id,
+      userId: q.user_id,
+      from: q.from,
+      to: q.to,
+      limit,
+      offset,
+    });
+    rows = out.rows;
+    total = out.total;
+  } catch (e) {
+    /** e.g. DB migrated with baseline that skipped 006_audit_logs.sql — avoid 500 until `npm run db:migrate` repair */
+    if (isPgUndefinedTable(e)) {
+      return {
+        data: [],
+        meta: { total_count: 0, limit, offset },
+      };
+    }
+    throw e;
+  }
+  const data = rows.map((r) => ({
+    id: r.id,
+    tenant_id: r.tenant_id,
+    user_id: r.user_id,
+    entity_type: r.entity_type,
+    entity_id: r.entity_id,
+    action: r.action,
+    changes: r.changes,
+    correlation_id: r.correlation_id,
+    ip_address: r.ip_address,
+    created_at:
+      r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  }));
+  return {
+    data,
+    meta: { total_count: total, limit, offset },
+  };
+}

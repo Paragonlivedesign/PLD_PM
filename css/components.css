@@ -1,4 +1,4 @@
-﻿/* ============================================
+/* ============================================
    Buttons
    ============================================ */
 .btn {
@@ -184,14 +184,11 @@
   background: rgba(255,255,255,0.1);
 }
 
-.lifecycle-stage.bidding { background: rgba(148,163,184,0.1); color: var(--phase-bidding); }
-.lifecycle-stage.awarded { background: var(--accent-blue-muted); color: var(--phase-awarded); }
-.lifecycle-stage.preproduction { background: var(--accent-purple-muted); color: var(--phase-preproduction); }
+.lifecycle-stage.planning { background: rgba(148,163,184,0.1); color: var(--phase-bidding); }
+.lifecycle-stage.pre_production { background: var(--accent-purple-muted); color: var(--phase-preproduction); }
 .lifecycle-stage.production { background: var(--accent-amber-muted); color: var(--phase-production); }
-.lifecycle-stage.live { background: var(--accent-red-muted); color: var(--phase-live); }
-.lifecycle-stage.wrap { background: var(--accent-orange-muted); color: var(--phase-wrap); }
-.lifecycle-stage.settled { background: var(--accent-green-muted); color: var(--phase-settled); }
-.lifecycle-stage.archived { background: rgba(107,114,128,0.1); color: var(--phase-archived); }
+.lifecycle-stage.post_production { background: var(--accent-orange-muted); color: var(--phase-wrap); }
+.lifecycle-stage.closed { background: var(--accent-green-muted); color: var(--phase-settled); }
 
 .lifecycle-stage:hover { transform: translateY(-1px); }
 .lifecycle-stage.active { border-color: currentColor; box-shadow: 0 0 12px rgba(255,255,255,0.05); }
@@ -269,11 +266,8 @@
   background: currentColor;
 }
 
-.phase-badge.bidding { background: rgba(148,163,184,0.15); color: var(--phase-bidding); }
-.phase-badge.awarded { background: var(--accent-blue-muted); color: var(--phase-awarded); }
-.phase-badge.preproduction { background: var(--accent-purple-muted); color: var(--phase-preproduction); }
+.phase-badge.planning { background: rgba(148,163,184,0.15); color: var(--phase-bidding); }
+.phase-badge.pre_production { background: var(--accent-purple-muted); color: var(--phase-preproduction); }
 .phase-badge.production { background: var(--accent-amber-muted); color: var(--phase-production); }
-.phase-badge.live { background: var(--accent-red-muted); color: var(--phase-live); }
-.phase-badge.wrap { background: var(--accent-orange-muted); color: var(--phase-wrap); }
-.phase-badge.settled { background: var(--accent-green-muted); color: var(--phase-settled); }
-.phase-badge.archived { background: rgba(107,114,128,0.15); color: var(--phase-archived); }
+.phase-badge.post_production { background: var(--accent-orange-muted); color: var(--phase-wrap); }
+.phase-badge.closed { background: var(--accent-green-muted); color: var(--phase-settled); }
