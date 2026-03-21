@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- PostgreSQL REST API (default local). Clear content="" to use Firestore seed only for personnel. -->
   <meta name="pld-api-base" content="http://127.0.0.1:3000">
-  <title>Production Manager — PLD_PM</title>
+  <title>PM — PLD_PM</title>
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
@@ -14,9 +14,13 @@
   <link rel="stylesheet" href="css/events.css">
   <link rel="stylesheet" href="css/scheduling.css">
   <link rel="stylesheet" href="css/event-page.css">
+  <link rel="stylesheet" href="css/crm-profile.css">
   <link rel="stylesheet" href="css/personnel.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/utilities.css">
+  <link rel="stylesheet" href="css/tasks.css">
+  <link rel="stylesheet" href="css/contacts.css">
+  <link rel="stylesheet" href="css/dev-auth.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -48,8 +52,10 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="logo">
-          <div class="logo-icon">PM</div>
-          <span class="logo-text">Production Manager</span>
+          <div class="logo-mark" title="PM">
+            <img id="pldShellLogo" class="logo-img" src="assets/branding/default-logo.png?v=4" alt="" width="80" height="80" decoding="async" onerror="this.onerror=null;this.src='assets/branding/default-logo.png?v=4';" />
+          </div>
+          <span class="logo-text">PM</span>
         </div>
       </div>
 
@@ -69,6 +75,10 @@
           <a href="javascript:void(0)" class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard'); return false;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             <span>Dashboard</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="tasks" onclick="navigateTo('tasks'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Tasks</span>
           </a>
         </div>
         <div class="nav-section">
@@ -105,6 +115,10 @@
           <a href="javascript:void(0)" class="nav-item" data-page="vendors" onclick="navigateTo('vendors'); return false;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             <span>Vendors</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="contacts" onclick="navigateTo('contacts'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Contacts</span>
           </a>
           <a href="javascript:void(0)" class="nav-item" data-page="travel" onclick="navigateTo('travel'); return false;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.4-.1.9.3 1.1l5.2 3 L6 14l-2.5-.5c-.3-.1-.7.1-.8.4l-.2.4c-.2.4 0 .8.3 1l3.3 2.1 2.1 3.3c.2.3.6.5 1 .3l.4-.2c.3-.2.5-.5.4-.8L9.5 18l2.9-2.9 3 5.2c.2.4.7.5 1.1.3l.5-.3c.4-.2.6-.6.5-1.1z"/></svg>
@@ -168,6 +182,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="vertical-align:middle;margin-right:4px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span style="font-size:12px;font-weight:500;">Admin</span>
           </button>
+          <button type="button" id="pldDevSeedBtn" class="btn btn-ghost btn-sm" style="display:none;flex-shrink:0;color:var(--accent-cyan);" title="Dev: insert full idempotent demo catalog via API (see scripts/seed-demo-catalog.mjs)" onclick="void window.pldQuickSeedDemo();" aria-label="Seed demo data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="vertical-align:middle;margin-right:4px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+            <span style="font-size:12px;font-weight:500;">Seed demo</span>
+          </button>
           <button class="topbar-icon-btn" id="notificationBtn" type="button" aria-label="Notifications">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span class="notification-dot" id="notificationUnreadDot" hidden aria-hidden="true"></span>
@@ -209,6 +227,7 @@
   <script src="js/pld-presence-ws.js"></script>
   <script src="js/pld-tenant-shell.js"></script>
   <script src="js/auth-pages.js"></script>
+  <script src="js/dev-auth-presets.js"></script>
   <script src="js/pld-events-sync.js?v=pldm-newclient-2"></script>
   <script src="js/pld-scheduling-api.js"></script>
   <script src="js/pld-travel-api.js"></script>
@@ -223,18 +242,23 @@
   <script src="js/ui-icons.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/modal.js"></script>
+  <script src="js/pld-picker.js?v=pldm-footer-20250321"></script>
+  <script src="js/pld-filter-table.js"></script>
+  <script src="js/tasks.js"></script>
   <script src="js/pld-personnel-api.js"></script>
   <script src="js/navigation.js"></script>
   <script src="js/topbar.js"></script>
   <script src="js/command-palette.js"></script>
   <script src="js/dashboard.js"></script>
-  <script src="js/events.js?v=pldm-newclient-2"></script>
+  <script src="js/events.js?v=pldm-newevent-20250321"></script>
   <script src="js/scheduling.js"></script>
   <script src="js/event-page.js"></script>
   <script src="js/running-schedule.js"></script>
   <script src="js/daily-schedule.js"></script>
   <script src="js/event-paperwork.js"></script>
   <script src="js/personnel.js"></script>
+  <script src="js/pld-crm-profile-shell.js"></script>
+  <script src="js/crm-profile-pages.js"></script>
   <script src="js/trucks.js"></script>
   <script src="js/travel.js"></script>
   <script src="js/financial.js"></script>
@@ -242,6 +266,7 @@
   <script src="js/clients.js"></script>
   <script src="js/venues.js"></script>
   <script src="js/vendors.js"></script>
+  <script src="js/contacts.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/profile.js"></script>
   <script src="js/modals.js"></script>

@@ -75,6 +75,58 @@ Same as [events.contract.md](./events.contract.md): `{ data, meta, errors }`.
 
 ---
 
+### POST /api/v1/venues/resolve-maps-link
+
+**Description:** Resolve a pasted maps URL (Google, Apple, OpenStreetMap, etc.) to coordinates and an IANA timezone when possible. Used by the venue CRM UI to auto-fill latitude, longitude, and timezone before save.
+
+**Auth:** Required. **`venues:update`** (prevents unauthenticated abuse of geocoding).
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| url | string | yes | HTTP(S) URL from a maps application |
+
+**Response — `200 OK`:** `{ data: ResolveMapsLinkResult, meta: null, errors: null }`
+
+**`ResolveMapsLinkResult`:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| latitude | number \| null | WGS84 |
+| longitude | number \| null | WGS84 |
+| timezone | string \| null | IANA e.g. `America/Chicago` |
+| formatted_address | string \| null | Best-effort formatted place |
+| partial | boolean | `true` if coordinates could not be fully resolved server-side (client may apply extra parsing) |
+| source | string | `google` \| `regex` \| `none` — how coordinates were obtained |
+
+**Behavior:**
+
+- When **`GOOGLE_MAPS_API_KEY`** is set on the server: uses Google Geocoding (including `place_id` when present in the URL) and derives timezone from coordinates (server-side zone lookup).
+- When the key is **not** set: attempts **regex / URL parsing** only; often returns `partial: true` with nulls unless the URL embeds coordinates (e.g. `@lat,lng`).
+
+**Errors:** `400` validation, `403` missing `venues:update`.
+
+---
+
+### GET /api/v1/venues/:id/banner-preview
+
+**Description:** Returns a **PNG** image for the venue header when Google Maps is configured: either a **roadmap** overview (`variant=google_map`) or **Street View** (`variant=google_streetview`) when a panorama exists at the venue coordinates. Proxies Google Static Maps / Street View so the API key is not embedded in the SPA.
+
+**Auth:** Required. **`venues:read`**.
+
+**Query:**
+
+| Param | Type | Description |
+|-------|------|-------------|
+| variant | string | `google_map` (default) \| `google_streetview` |
+
+**Response — `200 OK`:** Raw image body (`Content-Type: image/png`).
+
+**Errors:** `404` venue not found or coordinates missing; `404` or `502` when `GOOGLE_MAPS_API_KEY` is not set or Google returns no image (e.g. no Street View coverage). **`403`** if forbidden.
+
+---
+
 ## Type Definitions
 
 ### VenueResponse
@@ -93,3 +145,10 @@ Same as [events.contract.md](./events.contract.md): `{ data, meta, errors }`.
 | created_at | ISO 8601 datetime | |
 | updated_at | ISO 8601 datetime | |
 | deleted_at | ISO 8601 datetime \| null | |
+
+---
+
+### Profile metadata (optional)
+
+`metadata` is merged on `PUT`. For CRM profile UIs, nested keys under **`metadata.profile`** are reserved (optional): `tagline`, `about`, `website`, `social_url`, `avatar_document_id`, `cover_document_id` (document UUIDs per [documents.contract.md](./documents.contract.md)), `cover_banner_mode` (`gradient` \| `map` \| `custom` \| `google_map` \| `google_streetview` — `gradient` default styling; `map` OpenStreetMap snapshot; `custom` uploaded `cover_document_id`; `google_*` use server banner preview when `GOOGLE_MAPS_API_KEY` is configured), and `maps_link` (optional URL — e.g. Google or Apple Maps “place” link, shown alongside auto-generated map shortcuts). Nested CRM contacts under `/api/v1/venues/:venueId/contacts` mirror [clients.contract.md](./clients.contract.md) contact shape and optional contact `metadata` keys.
+

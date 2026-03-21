@@ -1,9 +1,15 @@
 # Integrations Module — Interface Contract
 
-> **Version:** 1.0.0
-> **Base Path:** `/api/v1/integrations`, `/api/v1/webhooks`, `/api/v1/api-keys`
-> **Owner:** Integrations Module
-> **Last Updated:** 2026-02-15
+> **Version:** 1.0.0  
+> **Base Path:** `/api/v1/integrations`, `/api/v1/webhooks`, `/api/v1/api-keys`  
+> **Owner:** Integrations Module  
+> **Last Updated:** 2026-03-22
+
+---
+
+## Implementation status
+
+**Not implemented in PLD_PM yet.** This document is a **design / Wave 4 contract** only. There are no Express mounts for these paths in [`backend/src/app-factory.ts`](../backend/src/app-factory.ts). Track delivery in [`docs/BACKLOG-TODO.md`](../docs/BACKLOG-TODO.md) (Wave 4 — Integrations). Do not treat these endpoints as authoritative for runtime behavior until the module ships.
 
 ---
 

@@ -34,7 +34,7 @@ Same as [events.contract.md](./events.contract.md): `{ data, meta, errors }`.
 | Param | Type | Description |
 |-------|------|-------------|
 | search | string | no | ILIKE on name, contact_email, contact_name |
-| limit | integer | no | 1–100, default 50 |
+| limit | integer | no | 1–200, default 50 |
 
 **Response:** `{ data: VendorResponse[], meta: { total_count }, errors: null }`
 
@@ -103,3 +103,10 @@ Same CRUD shape as [clients.contract.md](./clients.contract.md) contacts (polymo
 | created_at | ISO-8601 |
 | updated_at | ISO-8601 |
 | deleted_at | ISO-8601 \| null |
+
+---
+
+### Profile metadata (optional)
+
+`metadata` is merged on `PUT`. For CRM profile UIs, nested keys under **`metadata.profile`** are reserved (optional): `tagline`, `about`, `website`, `social_url`, `avatar_document_id`, `cover_document_id` (document UUIDs per [documents.contract.md](./documents.contract.md)). See [clients.contract.md](./clients.contract.md) nested contact `metadata` for optional contact fields.
+

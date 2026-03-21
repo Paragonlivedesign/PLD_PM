@@ -17,9 +17,9 @@ describe("event phase machine", () => {
     expect(isValidPhaseTransition("planning", "planning")).toBe(false);
   });
 
-  it("rejects jump back to planning (no rollback shortcut)", () => {
-    expect(isValidPhaseTransition("closed", "planning")).toBe(false);
-    expect(isValidPhaseTransition("production", "planning")).toBe(false);
-    expect(isValidPhaseTransition("pre_production", "planning")).toBe(false);
+  it("allows reset to planning from any non-planning phase (contract)", () => {
+    expect(isValidPhaseTransition("closed", "planning")).toBe(true);
+    expect(isValidPhaseTransition("production", "planning")).toBe(true);
+    expect(isValidPhaseTransition("pre_production", "planning")).toBe(true);
   });
 });

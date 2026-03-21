@@ -25,3 +25,9 @@ export const listVenuesQuerySchema = z.object({
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).optional(),
 });
+export const resolveMapsLinkSchema = z.object({
+    url: z.string().min(1).max(8000),
+});
+export const bannerPreviewQuerySchema = z.object({
+    variant: z.enum(["google_map", "google_streetview"]).optional().default("google_map"),
+});

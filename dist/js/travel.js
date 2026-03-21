@@ -99,30 +99,162 @@ function renderTravelRooming() {
 }
 
 function renderTravelPerDiem() {
-  const crewWithTravel = ['p1','p2','p3','p5','p7','p8','p11'].map(id => getPersonnel(id));
-  const perDiemRate = 75;
+  const defaultRate = 75;
+  const apiRows =
+    typeof window !== 'undefined' &&
+    window.__pldGlobalTravelList &&
+    !window.__pldGlobalTravelList.error &&
+    Array.isArray(window.__pldGlobalTravelList.rows)
+      ? window.__pldGlobalTravelList.rows
+      : [];
+  const byPid = new Map();
+  for (let i = 0; i < apiRows.length; i++) {
+    const tr = apiRows[i];
+    const pid = tr.personnel_id != null ? String(tr.personnel_id) : '';
+    if (!pid) continue;
+    const person = getPersonnel(pid);
+    if (!person) continue;
+    if (!byPid.has(pid)) {
+      byPid.set(pid, { person: person, dates: new Set(), eventName: null });
+    }
+    const entry = byPid.get(pid);
+    const dep = tr.departure_datetime != null ? String(tr.departure_datetime).slice(0, 10) : '';
+    if (dep) entry.dates.add(dep);
+    const en = tr.event_name != null && String(tr.event_name).trim() !== '' ? String(tr.event_name) : null;
+    if (en) entry.eventName = en;
+  }
+  let rows = [];
+  if (byPid.size > 0) {
+    byPid.forEach(function (entry) {
+      const p = entry.person;
+      const days = Math.max(1, entry.dates.size);
+      const rate =
+        p.per_diem != null && !Number.isNaN(Number(p.per_diem)) ? Number(p.per_diem) : defaultRate;
+      rows.push({
+        person: p,
+        eventName: entry.eventName || '—',
+        days: days,
+        rate: rate,
+        total: days * rate,
+      });
+    });
+  } else {
+    const demoIds = ['p1', 'p2', 'p3', 'p5', 'p7', 'p8', 'p11'];
+    for (let j = 0; j < demoIds.length; j++) {
+      const p = getPersonnel(demoIds[j]);
+      if (!p) continue;
+      const days = p.id === 'p8' ? 4 : 3;
+      const rate =
+        p.per_diem != null && !Number.isNaN(Number(p.per_diem)) ? Number(p.per_diem) : defaultRate;
+      const ev = EVENTS.find(function (e) {
+        return Array.isArray(e.crew) && e.crew.includes(p.id);
+      });
+      rows.push({
+        person: p,
+        eventName: ev ? ev.name : '—',
+        days: days,
+        rate: rate,
+        total: days * rate,
+      });
+    }
+  }
+  if (rows.length === 0) {
+    return `
+    <div class="empty-state" style="padding:32px;">
+      <p style="color:var(--text-tertiary);margin:0 0 10px;">No per diem rows yet. This tab uses <strong>travel records</strong> (unique crew and travel days) and each person’s <strong>per diem</strong> from Personnel (default $${defaultRate}/day).</p>
+      <p style="color:var(--text-tertiary);margin:0;font-size:13px;">Add travel while connected to the API, or load demo seed data when offline.</p>
+    </div>`;
+  }
+  const totalPerDiem = rows.reduce(function (s, r) {
+    return s + r.total;
+  }, 0);
+  const avgRate = rows.length ? rows.reduce(function (s, r) { return s + r.rate; }, 0) / rows.length : defaultRate;
   return `
     <div class="stats-row" style="margin-bottom:20px;">
-      <div class="stat-card"><div class="stat-label">Per Diem Rate</div><div class="stat-value">$${perDiemRate}/day</div></div>
-      <div class="stat-card"><div class="stat-label">Crew on Travel</div><div class="stat-value">${crewWithTravel.length}</div></div>
-      <div class="stat-card"><div class="stat-label">Total Per Diem</div><div class="stat-value">${formatCurrency(crewWithTravel.length * perDiemRate * 3)}</div></div>
+      <div class="stat-card"><div class="stat-label">Avg per diem rate</div><div class="stat-value">${formatCurrency(avgRate)}/day</div></div>
+      <div class="stat-card"><div class="stat-label">Crew on Travel</div><div class="stat-value">${rows.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Total Per Diem</div><div class="stat-value">${formatCurrency(totalPerDiem)}</div></div>
     </div>
     <div class="table-wrap"><table class="data-table"><thead><tr><th>Crew Member</th><th>Event</th><th>Travel Days</th><th>Rate</th><th>Total</th><th>Status</th></tr></thead><tbody>
-      ${crewWithTravel.map(p => { const days = p.id === 'p8' ? 4 : 3; return `<tr>
+      ${rows.map(function (r) {
+        const p = r.person;
+        return `<tr>
         <td><div style="display:flex;align-items:center;gap:8px;"><div style="width:24px;height:24px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:#fff;">${p.initials}</div>${p.name}</div></td>
-        <td>${EVENTS.find(e => e.crew.includes(p.id))?.name || '—'}</td>
-        <td>${days} days</td><td>${formatCurrency(perDiemRate)}</td><td><strong>${formatCurrency(days * perDiemRate)}</strong></td>
+        <td>${r.eventName}</td>
+        <td>${r.days} days</td><td>${formatCurrency(r.rate)}</td><td><strong>${formatCurrency(r.total)}</strong></td>
         <td><span class="phase-badge closed">Approved</span></td>
-      </tr>`; }).join('')}
+      </tr>`;
+      }).join('')}
     </tbody></table></div>
   `;
 }
 
+function pldTravelAddUpdateLabels() {
+  const sel = window.__pldTravelAddSel;
+  if (!sel) return;
+  const pl = document.getElementById('pldTravelAddPersonnelLabel');
+  const el = document.getElementById('pldTravelAddEventLabel');
+  if (pl) {
+    if (!sel.personnelId) pl.textContent = 'Select…';
+    else {
+      const p = getPersonnel(sel.personnelId);
+      pl.textContent = p ? p.name : 'Select…';
+    }
+  }
+  if (el) {
+    if (!sel.eventId) el.textContent = 'Select…';
+    else {
+      const ev = EVENTS.find((x) => x.id === sel.eventId);
+      el.textContent = ev ? ev.name : 'Select…';
+    }
+  }
+}
+
+function pldOpenTravelAddPersonnelPicker() {
+  if (typeof openPickerModal !== 'function') {
+    if (typeof showToast === 'function') showToast('Picker not available', 'error');
+    return;
+  }
+  const items =
+    typeof pickerItemsFromPersonnel === 'function' ? pickerItemsFromPersonnel(PERSONNEL) : [];
+  openPickerModal({
+    title: 'Select crew member',
+    items: items,
+    onSelect: function (id) {
+      window.__pldTravelAddSel = window.__pldTravelAddSel || { personnelId: '', eventId: '' };
+      window.__pldTravelAddSel.personnelId = id;
+      pldTravelAddUpdateLabels();
+    },
+  });
+}
+
+function pldOpenTravelAddEventPicker() {
+  if (typeof openPickerModal !== 'function') {
+    if (typeof showToast === 'function') showToast('Picker not available', 'error');
+    return;
+  }
+  const items =
+    typeof pickerItemsFromEvents === 'function'
+      ? pickerItemsFromEvents(EVENTS, { excludeTerminal: true })
+      : [];
+  openPickerModal({
+    title: 'Select event',
+    items: items,
+    pickerFilter: 'events',
+    onSelect: function (id) {
+      window.__pldTravelAddSel = window.__pldTravelAddSel || { personnelId: '', eventId: '' };
+      window.__pldTravelAddSel.eventId = id;
+      pldTravelAddUpdateLabels();
+    },
+  });
+}
+
 function openAddTravelModal() {
+  window.__pldTravelAddSel = { personnelId: '', eventId: '' };
   const body = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="form-group"><label class="form-label">Crew Member</label><select class="form-select"><option value="">Select…</option>${PERSONNEL.map(p => `<option>${p.name}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">Event</label><select class="form-select"><option value="">Select…</option>${EVENTS.map(e => `<option>${e.name}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Crew Member</label><button type="button" class="pld-picker-trigger" onclick="pldOpenTravelAddPersonnelPicker()"><span id="pldTravelAddPersonnelLabel">Select…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button></div>
+      <div class="form-group"><label class="form-label">Event</label><button type="button" class="pld-picker-trigger" onclick="pldOpenTravelAddEventPicker()"><span id="pldTravelAddEventLabel">Select…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button></div>
     </div>
     <div class="form-group"><label class="form-label">Type</label><select class="form-select"><option>Flight</option><option>Hotel</option><option>Self-Drive</option><option>Bus/Shuttle</option><option>Train</option></select></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">

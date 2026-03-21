@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { ZodError } from "zod";
-import { ok, singleError } from "../../http/envelope.js";
-import { asyncHandler, requirePermission, } from "../../core/middleware.js";
+import { ok, singleError, fail } from "../../http/envelope.js";
+import { asyncHandler, requireAnyPermission, requirePermission, } from "../../core/middleware.js";
 import { routeParam } from "../../core/route-params.js";
 import { cloneEventSchema, createEventSchema, listEventsQuerySchema, updateEventSchema, updatePhaseSchema, } from "./schemas.js";
 import * as svc from "./service.js";
@@ -125,12 +125,31 @@ eventsRouter.put("/:id", requirePermission("events:update"), asyncHandler(async 
     }
 }));
 eventsRouter.delete("/:id", requirePermission("events:delete"), asyncHandler(async (req, res) => {
-    const r = await svc.deleteEvent(req.ctx.tenantId, req.ctx.userId, routeParam(req.params.id));
+    const q = req.query.force;
+    const force = q === "true" ||
+        q === "1" ||
+        (Array.isArray(q) && (q[0] === "true" || q[0] === "1"));
+    const r = await svc.deleteEvent(req.ctx.tenantId, req.ctx.userId, routeParam(req.params.id), {
+        force,
+    });
+    if (!r.ok) {
+        if (r.details !== undefined) {
+            res.status(r.status).json(fail([{ code: r.code, message: r.message, details: r.details }], r.status).body);
+        }
+        else {
+            res.status(r.status).json(singleError(r.code, r.message, r.status).body);
+        }
+        return;
+    }
+    res.json(ok(r.deleted));
+}));
+eventsRouter.post("/:id/restore", requireAnyPermission("tenancy.settings.edit"), asyncHandler(async (req, res) => {
+    const r = await svc.restoreSoftDeletedEvent(req.ctx.tenantId, req.ctx.userId, routeParam(req.params.id));
     if (!r.ok) {
         res.status(r.status).json(singleError(r.code, r.message, r.status).body);
         return;
     }
-    res.json(ok(r.deleted));
+    res.json(ok(r.event));
 }));
 eventsRouter.post("/:id/clone", requirePermission("events:create"), asyncHandler(async (req, res) => {
     try {

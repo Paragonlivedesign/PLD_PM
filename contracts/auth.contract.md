@@ -333,6 +333,15 @@ All responses follow the standard envelope:
 
 ## Endpoints — Invitations
 
+### Two `…/invitations/accept` routes (do not confuse)
+
+| Method and path | Module | Purpose |
+|-----------------|--------|---------|
+| `POST /api/v1/auth/invitations/accept` | Auth | Public. Accept an **auth** invitation: create/link **user** account (password + token in body). Implemented on [`authPublicRouter`](../backend/src/modules/auth/routes.ts). |
+| `POST /api/v1/invitations/accept` | Personnel | Public. Accept a **personnel** invitation token (`personnelService.acceptInvitation`). Implemented at app root in [`app-factory.ts`](../backend/src/app-factory.ts) (not under `/auth`). Response shape differs from auth. |
+
+UI and clients must use the URL that matches the invitation email / token type.
+
 ### POST /api/v1/auth/invite
 
 **Description:** Send an invitation to create an account. Generates a secure token and triggers an invitation email.

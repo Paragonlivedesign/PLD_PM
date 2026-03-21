@@ -439,3 +439,30 @@ export async function selectEventsByClient(
   );
   return r.rows.map(mapEventRow);
 }
+
+/** Includes soft-deleted rows (deleted_at set). */
+export async function getEventRowByIdAnyDeletedState(
+  client: Pool | PoolClient,
+  tenantId: string,
+  id: string,
+): Promise<EventResponse | null> {
+  const r = await client.query<DbEventRow>(
+    `SELECT * FROM events WHERE tenant_id = $1 AND id = $2`,
+    [tenantId, id],
+  );
+  return r.rows[0] ? mapEventRow(r.rows[0]) : null;
+}
+
+export async function restoreSoftDeletedEventRow(
+  client: Pool | PoolClient,
+  tenantId: string,
+  id: string,
+): Promise<EventResponse | null> {
+  const r = await client.query<DbEventRow>(
+    `UPDATE events SET deleted_at = NULL, updated_at = NOW()
+     WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NOT NULL
+     RETURNING *`,
+    [tenantId, id],
+  );
+  return r.rows[0] ? mapEventRow(r.rows[0]) : null;
+}

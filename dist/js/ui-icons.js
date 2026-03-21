@@ -11,7 +11,7 @@ const UI_ICONS_DEFAULTS = {
   themeDark: '\uD83C\uDF19',
   themeLight: '\u2600\uFE0F',
   themeMidnight: '\uD83C\uDF0C',
-  themeSolarized: '\uD83C\uDF05',
+  themeCustom: '\uD83C\uDFA8',
   // Profile tabs
   profilePersonal: '\uD83D\uDC64',
   profileSecurity: '\uD83D\uDD12',

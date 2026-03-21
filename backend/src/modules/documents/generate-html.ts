@@ -58,9 +58,9 @@ export function buildGenerationContext(params: {
     event_description: ev.description ?? "",
     personnel_table: `<table border="1" cellpadding="6"><thead><tr><th>Name</th><th>Role</th><th>Email</th></tr></thead><tbody>${personnelRows}</tbody></table>`,
     custom_fields_list: cfLines.length ? `<ul>${cfLines.join("")}</ul>` : "<p>—</p>",
-    schedule_section: "<p><em>Scheduling data not yet wired (stub).</em></p>",
-    travel_section: "<p><em>Travel data not yet wired (stub).</em></p>",
-    financial_section: "<p><em>Financial data not yet wired (stub).</em></p>",
+    schedule_section: "<p><em>No scheduling excerpt (fallback — document generation normally replaces this).</em></p>",
+    travel_section: "<p><em>No travel excerpt (fallback).</em></p>",
+    financial_section: "<p><em>No financial excerpt (fallback).</em></p>",
   };
 
   for (const k of BUILTIN_MERGE_KEYS) {

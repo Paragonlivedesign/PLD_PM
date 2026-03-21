@@ -463,7 +463,7 @@ The backend accepts legacy permission names `departments:create`, `departments:u
 | skills | string[] | Skill tags |
 | status | enum: active, inactive, on_leave | Current status |
 | emergency_contact | EmergencyContact | null | Emergency contact info |
-| metadata | object | Custom fields |
+| metadata | object | Custom fields (see [Personnel metadata reserved keys](#personnel-metadata-reserved-keys)) |
 | photo_document_id | UUID | null | Linked headshot document id |
 | photo_url | string | null | Time-limited direct URL for the image file (list/get only; use for `<img src>`) |
 | photo_url_expires_at | ISO 8601 datetime | null | When `photo_url` stops working |
@@ -471,6 +471,24 @@ The backend accepts legacy permission names `departments:create`, `departments:u
 | updated_at | ISO 8601 datetime | Last update timestamp |
 | deactivated_at | ISO 8601 datetime | null | Deactivation timestamp |
 | version | integer | Row version for optimistic locking on PUT |
+
+### Personnel metadata reserved keys
+
+`PersonnelResponse.metadata` is a shallow-merge key–value store on create/update. Integrations and the product UI may use these **reserved** top-level keys for consistent behavior:
+
+| Key | Type | Description |
+|---|---|---|
+| `tax` | object | Tax and legal fields (worker classification, withholding, document status enums, etc.). Typically edited via the Tax & Legal profile UI, not raw JSON. |
+| `onboarding` | object | Optional HR onboarding snapshot (see below). Typically edited via the Onboarding profile UI; other keys remain valid in `metadata`. |
+
+**`metadata.onboarding` (optional object)** — all sub-fields optional; additional keys are allowed.
+
+| Field | Type | Description |
+|---|---|---|
+| `stage` | string enum | One of: `invited`, `collecting_paperwork`, `ready`, `active` |
+| `cleared_to_work` | boolean | Explicit approval to assign this person to events / crew work |
+| `notes` | string | Freeform admin notes |
+| `checklist` | object | Boolean flags for items not modeled elsewhere, e.g. `orientation_complete`, `handbook_ack` |
 
 ### EmergencyContact
 

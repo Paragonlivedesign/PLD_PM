@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- PostgreSQL REST API (default local). Clear content="" to use Firestore seed only for personnel. -->
   <meta name="pld-api-base" content="http://127.0.0.1:3000">
-  <title>Production Manager — PLD_PM</title>
+  <title>PM — PLD_PM</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     #pld-boot-error { position: fixed; top: 0; left: 0; right: 0; z-index: 99999; padding: 12px 16px; background: #b91c1c; color: #fff; font-size: 14px; text-align: center; }
     #pld-boot-error.hidden { display: none; }
   </style>
-  <link rel="stylesheet" crossorigin href="/assets/index-CdEM3sfV.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-B0pFAMa0.css">
 </head>
 <body>
   <div id="pld-boot-error" class="pld-boot-error hidden" role="alert"></div>
@@ -37,8 +37,10 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="logo">
-          <div class="logo-icon">PM</div>
-          <span class="logo-text">Production Manager</span>
+          <div class="logo-mark" title="PM">
+            <img id="pldShellLogo" class="logo-img" src="data:image/png;base64,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" alt="" width="80" height="80" decoding="async" onerror="this.onerror=null;this.src='assets/branding/default-logo.png?v=4';" />
+          </div>
+          <span class="logo-text">PM</span>
         </div>
       </div>
 
@@ -58,6 +60,10 @@
           <a href="javascript:void(0)" class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard'); return false;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             <span>Dashboard</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="tasks" onclick="navigateTo('tasks'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <span>Tasks</span>
           </a>
         </div>
         <div class="nav-section">
@@ -94,6 +100,10 @@
           <a href="javascript:void(0)" class="nav-item" data-page="vendors" onclick="navigateTo('vendors'); return false;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             <span>Vendors</span>
+          </a>
+          <a href="javascript:void(0)" class="nav-item" data-page="contacts" onclick="navigateTo('contacts'); return false;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span>Contacts</span>
           </a>
           <a href="javascript:void(0)" class="nav-item" data-page="travel" onclick="navigateTo('travel'); return false;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.4-.1.9.3 1.1l5.2 3 L6 14l-2.5-.5c-.3-.1-.7.1-.8.4l-.2.4c-.2.4 0 .8.3 1l3.3 2.1 2.1 3.3c.2.3.6.5 1 .3l.4-.2c.3-.2.5-.5.4-.8L9.5 18l2.9-2.9 3 5.2c.2.4.7.5 1.1.3l.5-.3c.4-.2.6-.6.5-1.1z"/></svg>
@@ -157,6 +167,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="vertical-align:middle;margin-right:4px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span style="font-size:12px;font-weight:500;">Admin</span>
           </button>
+          <button type="button" id="pldDevSeedBtn" class="btn btn-ghost btn-sm" style="display:none;flex-shrink:0;color:var(--accent-cyan);" title="Dev: insert full idempotent demo catalog via API (see scripts/seed-demo-catalog.mjs)" onclick="void window.pldQuickSeedDemo();" aria-label="Seed demo data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="vertical-align:middle;margin-right:4px;"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+            <span style="font-size:12px;font-weight:500;">Seed demo</span>
+          </button>
           <button class="topbar-icon-btn" id="notificationBtn" type="button" aria-label="Notifications">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span class="notification-dot" id="notificationUnreadDot" hidden aria-hidden="true"></span>
@@ -198,6 +212,7 @@
   <script src="js/pld-presence-ws.js"></script>
   <script src="js/pld-tenant-shell.js"></script>
   <script src="js/auth-pages.js"></script>
+  <script src="js/dev-auth-presets.js"></script>
   <script src="js/pld-events-sync.js?v=pldm-newclient-2"></script>
   <script src="js/pld-scheduling-api.js"></script>
   <script src="js/pld-travel-api.js"></script>
@@ -212,18 +227,23 @@
   <script src="js/ui-icons.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/modal.js"></script>
+  <script src="js/pld-picker.js?v=pldm-footer-20250321"></script>
+  <script src="js/pld-filter-table.js"></script>
+  <script src="js/tasks.js"></script>
   <script src="js/pld-personnel-api.js"></script>
   <script src="js/navigation.js"></script>
   <script src="js/topbar.js"></script>
   <script src="js/command-palette.js"></script>
   <script src="js/dashboard.js"></script>
-  <script src="js/events.js?v=pldm-newclient-2"></script>
+  <script src="js/events.js?v=pldm-newevent-20250321"></script>
   <script src="js/scheduling.js"></script>
   <script src="js/event-page.js"></script>
   <script src="js/running-schedule.js"></script>
   <script src="js/daily-schedule.js"></script>
   <script src="js/event-paperwork.js"></script>
   <script src="js/personnel.js"></script>
+  <script src="js/pld-crm-profile-shell.js"></script>
+  <script src="js/crm-profile-pages.js"></script>
   <script src="js/trucks.js"></script>
   <script src="js/travel.js"></script>
   <script src="js/financial.js"></script>
@@ -231,6 +251,7 @@
   <script src="js/clients.js"></script>
   <script src="js/venues.js"></script>
   <script src="js/vendors.js"></script>
+  <script src="js/contacts.js"></script>
   <script src="js/settings.js"></script>
   <script src="js/profile.js"></script>
   <script src="js/modals.js"></script>

@@ -220,7 +220,6 @@ function renderDashboardCrew() {
         <div class="table-wrap">
           ${myDocs.length > 0 ? `<table class="data-table"><thead><tr><th>Document</th><th>Event</th></tr></thead><tbody>${myDocs.map(d => `<tr onclick="openDocPreview('${d.id}')"><td style="font-weight:500;">${d.name}</td><td>${nextEv?.name || ''}</td></tr>`).join('')}</tbody></table>` : '<div class="empty-state"><p style="color:var(--text-tertiary);">No documents assigned</p></div>'}
         </div>
-        <div style="padding:12px;border-top:1px solid var(--border-subtle);"><button class="btn btn-ghost btn-sm" onclick="showToast('Confirm availability — coming soon','info')">Confirm availability</button></div>
       </div>
     </div>
   `;

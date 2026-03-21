@@ -6,6 +6,155 @@ function phaseDisplayLabel(phase) {
   return PHASE_LABELS[phase] || (phase ? String(phase).replace(/_/g, ' ') : '—');
 }
 
+/** Sentinel values for new-event modal pickers. */
+var NEW_EVENT_CLIENT_CREATE_VALUE = '__pld_create_client__';
+var NEW_EVENT_VENUE_CREATE_VALUE = '__pld_create_venue__';
+var NEW_EVENT_CONTACT_CREATE_VALUE = '__pld_create_contact__';
+/** Picker "none" row — non-empty id avoids empty data-id and Map key collisions. */
+var PLD_PICKER_NONE_ID = '__pld_pick_none__';
+
+function pldFormatEventDeleteBlockersPlain(blockers) {
+  if (!blockers || typeof blockers !== 'object') return '';
+  const pairs = [
+    ['crew_assignments', 'Crew assignments'],
+    ['truck_assignments', 'Truck assignments'],
+    ['truck_routes', 'Truck routes'],
+    ['travel_records', 'Travel records'],
+    ['financial_records', 'Financial rows'],
+    ['invoices_committed', 'Invoices (not draft/void)'],
+    ['documents', 'Documents'],
+    ['rider_items', 'Rider items'],
+    ['email_drafts', 'Email drafts'],
+    ['time_entries_linked', 'Time entries linked'],
+    ['tasks_linked', 'Tasks linked'],
+  ];
+  const lines = [];
+  for (let i = 0; i < pairs.length; i++) {
+    const n = blockers[pairs[i][0]];
+    if (typeof n === 'number' && n > 0) lines.push(pairs[i][1] + ': ' + n);
+  }
+  return lines.length ? lines.join('\n') : 'Related data is still attached to this event.';
+}
+
+/**
+ * Delete via API; on 409 shows a second confirm to force-delete related rows.
+ * @param {string} eventId
+ * @param {{ closeModalAfter?: boolean, afterOk?: () => void }} opts
+ */
+async function pldRunEventDeleteUi(eventId, opts) {
+  const o = opts || {};
+  if (typeof PLD_EVENTS_FROM_REST === 'undefined' || !PLD_EVENTS_FROM_REST) {
+    if (typeof showToast === 'function') showToast('Event delete requires API mode.', 'error');
+    return;
+  }
+  const first = await pldDeleteEventViaApi(eventId, {});
+  if (first.ok) {
+    if (typeof showToast === 'function') showToast('Event deleted', 'success');
+    if (typeof pldRefetchEventsListFromApi === 'function') await pldRefetchEventsListFromApi();
+    if (o.closeModalAfter && typeof closeModal === 'function') closeModal();
+    if (typeof o.afterOk === 'function') o.afterOk();
+    else if (typeof renderPage === 'function') renderPage(currentPage);
+    return;
+  }
+  if (first.status === 409 && first.details && first.details.blockers) {
+    const plain = pldFormatEventDeleteBlockersPlain(first.details.blockers);
+    if (typeof showConfirm !== 'function') {
+      if (typeof showToast === 'function') showToast(plain || first.message || 'Delete blocked', 'warning');
+      return;
+    }
+    showConfirm(
+      'Still linked data',
+      plain +
+        '\n\nForce delete removes those rows, then deletes the event. This cannot be undone.',
+      function () {
+        void (async () => {
+          const second = await pldDeleteEventViaApi(eventId, { force: true });
+          if (second.ok) {
+            if (typeof showToast === 'function') showToast('Event deleted', 'success');
+            if (typeof pldRefetchEventsListFromApi === 'function') await pldRefetchEventsListFromApi();
+            if (o.closeModalAfter && typeof closeModal === 'function') closeModal();
+            if (typeof o.afterOk === 'function') o.afterOk();
+            else if (typeof renderPage === 'function') renderPage(currentPage);
+          } else if (second.message && typeof showToast === 'function') {
+            showToast(second.message, 'error');
+          }
+        })();
+      },
+    );
+    return;
+  }
+  if (first.message && typeof showToast === 'function') showToast(first.message, 'error');
+}
+
+async function pldCancelEventStatus(eventId, opts) {
+  const o = opts || {};
+  if (typeof PLD_EVENTS_FROM_REST === 'undefined' || !PLD_EVENTS_FROM_REST) {
+    if (typeof showToast === 'function') showToast('API mode required to change status.', 'error');
+    return;
+  }
+  await pldPersistEventPatchViaApi(eventId, { status: 'cancelled' });
+  if (typeof showToast === 'function') showToast('Event marked cancelled', 'success');
+  if (typeof pldRefetchEventsListFromApi === 'function') await pldRefetchEventsListFromApi();
+  if (typeof pldRefreshEventFromApi === 'function') await pldRefreshEventFromApi(eventId);
+  if (o.closeModalAfter && typeof closeModal === 'function') closeModal();
+  if (typeof renderPage === 'function') renderPage(currentPage);
+}
+
+async function pldUncancelEventStatus(eventId, opts) {
+  const o = opts || {};
+  if (typeof PLD_EVENTS_FROM_REST === 'undefined' || !PLD_EVENTS_FROM_REST) {
+    if (typeof showToast === 'function') showToast('API mode required to change status.', 'error');
+    return;
+  }
+  await pldPersistEventPatchViaApi(eventId, { status: 'confirmed' });
+  if (typeof showToast === 'function') showToast('Status set to confirmed', 'success');
+  if (typeof pldRefetchEventsListFromApi === 'function') await pldRefetchEventsListFromApi();
+  if (typeof pldRefreshEventFromApi === 'function') await pldRefreshEventFromApi(eventId);
+  if (o.closeModalAfter && typeof closeModal === 'function') closeModal();
+  if (typeof renderPage === 'function') renderPage(currentPage);
+}
+
+function pldCancelEventFromHeader(eventId) {
+  if (typeof showConfirm !== 'function') return;
+  showConfirm(
+    'Mark cancelled',
+    'Set this event to cancelled status? The event stays in the list unless you delete it.',
+    function () {
+      void pldCancelEventStatus(eventId, {});
+    },
+  );
+}
+
+function pldUncancelEventFromHeader(eventId) {
+  if (typeof showConfirm !== 'function') return;
+  showConfirm(
+    'Restore status',
+    'Set status back to confirmed? Phase is unchanged — adjust phase separately if needed.',
+    function () {
+      void pldUncancelEventStatus(eventId, {});
+    },
+  );
+}
+
+function pldDeleteEventFromHeader(eventId) {
+  if (typeof showConfirm !== 'function') return;
+  showConfirm('Delete event', 'Delete this event permanently?', function () {
+    void pldRunEventDeleteUi(eventId, {
+      afterOk: function () {
+        selectedEventId = null;
+        navigateTo('events');
+      },
+    });
+  });
+}
+
+window.pldRunEventDeleteUi = pldRunEventDeleteUi;
+window.pldCancelEventStatus = pldCancelEventStatus;
+window.pldUncancelEventStatus = pldUncancelEventStatus;
+window.pldCancelEventFromHeader = pldCancelEventFromHeader;
+window.pldUncancelEventFromHeader = pldUncancelEventFromHeader;
+window.pldDeleteEventFromHeader = pldDeleteEventFromHeader;
+
 function getFilteredSortedEvents() {
   let list = EVENTS.slice();
   if (selectedPhaseFilter) {
@@ -275,13 +424,21 @@ function openEventDetail(eventId) {
 
   const deleteFn =
     typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST
-      ? `showConfirm('Delete Event','Are you sure you want to delete ${String(ev.name).replace(/'/g, "\\'")}?', () => { void (async () => { const ok = await pldDeleteEventViaApi('${ev.id}'); if (ok) { showToast('Event deleted','success'); closeModal(); renderPage(currentPage); } })(); })`
+      ? `showConfirm('Delete Event','Are you sure you want to delete ${String(ev.name).replace(/'/g, "\\'")}?', () => { void pldRunEventDeleteUi('${ev.id}', { closeModalAfter: true }); })`
       : `showConfirm('Delete Event','Are you sure you want to delete ${String(ev.name).replace(/'/g, "\\'")}? This cannot be undone.', () => showToast('Event deleted','error'))`;
+
+  const cancelBtn =
+    typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST
+      ? ev.status === 'cancelled'
+        ? `<button type="button" class="btn btn-secondary btn-sm" onclick="void pldUncancelEventStatus('${ev.id}', { closeModalAfter: true })">Restore status</button>`
+        : `<button type="button" class="btn btn-secondary btn-sm" onclick="void pldCancelEventStatus('${ev.id}', { closeModalAfter: true })">Mark cancelled</button>`
+      : '';
 
   openModal(
     ev.name,
     body,
     `
+    ${cancelBtn}
     <button type="button" class="btn btn-danger btn-sm" onclick="${deleteFn}">Delete</button>
     <div style="flex:1;"></div>
     <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
@@ -297,48 +454,156 @@ function pldNewEventOptEsc(s) {
     .replace(/"/g, '&quot;');
 }
 
+function pldUpdateNewEventPrimaryContactLabel() {
+  const h = document.getElementById('newEventPrimaryContact');
+  const span = document.getElementById('newEventPrimaryContactLabel');
+  if (!h || !span) return;
+  const v = h.value ? String(h.value) : '';
+  if (!v) {
+    span.textContent = 'None';
+    return;
+  }
+  const items = window.__pldNewEventPrimaryContactItems;
+  if (Array.isArray(items)) {
+    const row = items.find(function (it) {
+      return String(it.id) === v;
+    });
+    if (row && row.primary) {
+      span.textContent = String(row.primary);
+      return;
+    }
+  }
+  span.textContent = 'Contact';
+}
+
+window.pldOpenNewEventPrimaryContactPicker = async function pldOpenNewEventPrimaryContactPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  if (typeof window.pldRefreshNewEventPrimaryContactOptions === 'function') {
+    await window.pldRefreshNewEventPrimaryContactOptions();
+  }
+  const raw = Array.isArray(window.__pldNewEventPrimaryContactItems)
+    ? window.__pldNewEventPrimaryContactItems.slice()
+    : [{ id: PLD_PICKER_NONE_ID, primary: '— None —', secondary: '' }];
+  const clientEl = document.getElementById('newEventClient');
+  const hasClient =
+    clientEl &&
+    clientEl.value &&
+    String(clientEl.value) !== '' &&
+    String(clientEl.value) !== NEW_EVENT_CLIENT_CREATE_VALUE;
+  const createContactRow = {
+    id: NEW_EVENT_CONTACT_CREATE_VALUE,
+    primary: '+ Create new contact…',
+    secondary: hasClient ? 'Saved under the selected client' : 'Select a client first',
+  };
+  if (raw.length && (String(raw[0].id) === '' || String(raw[0].id) === PLD_PICKER_NONE_ID)) {
+    if (String(raw[0].id) === '') raw[0].id = PLD_PICKER_NONE_ID;
+    raw.splice(1, 0, createContactRow);
+  } else {
+    raw.unshift(createContactRow);
+  }
+  openPickerModal({
+    title: 'Primary contact',
+    items: raw,
+    searchPlaceholder: 'Search name or label…',
+    emptyMessage: 'Choose a client (and optionally a venue), then pick or create a contact.',
+    footerButtons: [
+      {
+        label: '+ Create new contact',
+        className: 'btn btn-primary btn-sm',
+        onClick: function () {
+          if (!hasClient) {
+            if (typeof showToast === 'function') {
+              showToast('Select a client first, then add a contact.', 'warning');
+            }
+            return;
+          }
+          const row = document.getElementById('newContactQuickRow');
+          if (row) row.hidden = false;
+          const q = document.getElementById('newContactQuickName');
+          if (q) {
+            q.focus();
+            q.select();
+          }
+        },
+      },
+    ],
+    onSelect(id) {
+      if (String(id) === NEW_EVENT_CONTACT_CREATE_VALUE) {
+        if (!hasClient) {
+          if (typeof showToast === 'function') {
+            showToast('Select a client first, then add a contact.', 'warning');
+          }
+          return;
+        }
+        const row = document.getElementById('newContactQuickRow');
+        if (row) row.hidden = false;
+        const q = document.getElementById('newContactQuickName');
+        if (q) {
+          q.focus();
+          q.select();
+        }
+        return;
+      }
+      const hi = document.getElementById('newEventPrimaryContact');
+      if (hi) {
+        hi.value =
+          id == null || id === '' || String(id) === PLD_PICKER_NONE_ID ? '' : String(id);
+      }
+      pldUpdateNewEventPrimaryContactLabel();
+    },
+  });
+};
+
 window.pldRefreshNewEventPrimaryContactOptions = async function pldRefreshNewEventPrimaryContactOptions() {
-  const sel = document.getElementById('newEventPrimaryContact');
-  if (!sel || typeof pldListContactsForParent !== 'function') return;
+  const hid = document.getElementById('newEventPrimaryContact');
+  if (!hid || typeof pldListContactsForParent !== 'function') return;
   const clientEl = document.getElementById('newEventClient');
   const venueEl = document.getElementById('newEventVenue');
-  let client_id =
+  const client_id =
     clientEl && clientEl.value && clientEl.value !== NEW_EVENT_CLIENT_CREATE_VALUE
       ? String(clientEl.value)
       : '';
   const venue_id = venueEl && venueEl.value ? String(venueEl.value) : '';
-  const prev = sel.value || '';
-  let html = '<option value="">None</option>';
+  const prev = hid.value ? String(hid.value) : '';
+
+  const items = [{ id: PLD_PICKER_NONE_ID, primary: '— None —', secondary: '' }];
+  const seen = new Set([PLD_PICKER_NONE_ID]);
+
   if (client_id) {
-    const clientRows = await pldListContactsForParent('client', client_id);
+    const clientRows = await pldListContactsForParent('client', client_id, { silent: true });
     clientRows.forEach(function (r) {
       const id = String(r.id);
-      const lab = 'Client: ' + String(r.name || '') + (r.email ? ' · ' + r.email : '');
-      html +=
-        '<option value="' +
-        pldNewEventOptEsc(id) +
-        '">' +
-        pldNewEventOptEsc(lab) +
-        '</option>';
+      if (seen.has(id)) return;
+      seen.add(id);
+      const lab = 'Client · ' + String(r.name || '') + (r.email ? ' · ' + r.email : '');
+      items.push({
+        id: id,
+        primary: r.name || '—',
+        secondary: lab,
+      });
     });
   }
   if (venue_id) {
-    const venueRows = await pldListContactsForParent('venue', venue_id);
+    const venueRows = await pldListContactsForParent('venue', venue_id, { silent: true });
     venueRows.forEach(function (r) {
       const id = String(r.id);
-      const lab = 'Venue: ' + String(r.name || '') + (r.email ? ' · ' + r.email : '');
-      html +=
-        '<option value="' +
-        pldNewEventOptEsc(id) +
-        '">' +
-        pldNewEventOptEsc(lab) +
-        '</option>';
+      if (seen.has(id)) return;
+      seen.add(id);
+      const lab = 'Venue · ' + String(r.name || '') + (r.email ? ' · ' + r.email : '');
+      items.push({
+        id: id,
+        primary: r.name || '—',
+        secondary: lab,
+      });
     });
   }
-  sel.innerHTML = html;
-  if (prev && Array.prototype.some.call(sel.options, function (o) { return o.value === prev; })) {
-    sel.value = prev;
-  }
+
+  window.__pldNewEventPrimaryContactItems = items;
+
+  const valid = new Set(items.map(function (it) { return String(it.id); }));
+  if (prev && !valid.has(prev)) hid.value = '';
+
+  pldUpdateNewEventPrimaryContactLabel();
 };
 
 function transitionPhase(eventId, newPhase) {
@@ -350,6 +615,8 @@ function transitionPhase(eventId, newPhase) {
       const oldPhase = ev.phase;
       const ok = await pldTransitionEventPhaseViaApi(eventId, newPhase, null);
       if (ok) {
+        if (typeof pldRefetchEventsListFromApi === 'function') await pldRefetchEventsListFromApi();
+        if (typeof pldRefreshEventFromApi === 'function') await pldRefreshEventFromApi(eventId);
         showToast(`${ev.name}: ${phaseDisplayLabel(oldPhase)} → ${phaseDisplayLabel(newPhase)}`, 'success');
         closeModal();
         renderPage(currentPage);
@@ -465,23 +732,247 @@ function eventPhaseHeaderButtons(ev) {
   return left + right;
 }
 
-/** Sentinel: choosing this opens the quick-add panel (also in dropdown for discoverability). */
-var NEW_EVENT_CLIENT_CREATE_VALUE = '__pld_create_client__';
-
-function newEventModalClientOptionsHtml() {
-  return `<option value="">Select client…</option><option value="${NEW_EVENT_CLIENT_CREATE_VALUE}">+ Create new client…</option>${CLIENTS.map((c) => `<option value="${c.id}">${c.name}</option>`).join('')}`;
+function pldUpdateNewEventClientLabel() {
+  const h = document.getElementById('newEventClient');
+  const span = document.getElementById('newEventClientLabel');
+  if (!h || !span) return;
+  const v = h.value ? String(h.value) : '';
+  if (!v) {
+    span.textContent = 'Select client…';
+    return;
+  }
+  const c = CLIENTS.find((x) => String(x.id) === v);
+  span.textContent = c ? c.name : 'Select client…';
 }
 
-function onNewEventClientSelectChange(sel) {
-  if (!sel || sel.value !== NEW_EVENT_CLIENT_CREATE_VALUE) return;
-  sel.value = '';
-  const row = document.getElementById('newClientQuickRow');
-  if (row) row.hidden = false;
-  const q = document.getElementById('newClientQuickName');
-  if (q) {
-    q.focus();
-    q.select();
+function pldUpdateNewEventVenueLabel() {
+  const h = document.getElementById('newEventVenue');
+  const span = document.getElementById('newEventVenueLabel');
+  if (!h || !span) return;
+  const v = h.value ? String(h.value) : '';
+  if (!v) {
+    span.textContent = 'Select venue…';
+    return;
   }
+  const ven = VENUES.find((x) => String(x.id) === v);
+  span.textContent = ven ? `${ven.name} — ${ven.city || ''}` : 'Select venue…';
+}
+
+function pldOpenNewEventClientPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  const items = [
+    {
+      id: NEW_EVENT_CLIENT_CREATE_VALUE,
+      primary: '+ Create new client…',
+      secondary: 'Opens quick add below',
+    },
+  ];
+  CLIENTS.forEach((c) => {
+    items.push({ id: String(c.id), primary: c.name || '—', secondary: '' });
+  });
+  openPickerModal({
+    title: 'Select client',
+    items: items,
+    onSelect: function (id) {
+      if (id === NEW_EVENT_CLIENT_CREATE_VALUE) {
+        const hi = document.getElementById('newEventClient');
+        if (hi) hi.value = '';
+        pldUpdateNewEventClientLabel();
+        const row = document.getElementById('newClientQuickRow');
+        if (row) row.hidden = false;
+        const q = document.getElementById('newClientQuickName');
+        if (q) {
+          q.focus();
+          q.select();
+        }
+        return;
+      }
+      const hi = document.getElementById('newEventClient');
+      if (hi) hi.value = id;
+      pldUpdateNewEventClientLabel();
+      if (typeof pldRefreshNewEventPrimaryContactOptions === 'function') {
+        void pldRefreshNewEventPrimaryContactOptions();
+      }
+    },
+  });
+}
+
+function pldOpenNewEventVenuePicker() {
+  if (typeof openPickerModal !== 'function') return;
+  function openVenueQuickAdd() {
+    const hi = document.getElementById('newEventVenue');
+    if (hi) hi.value = '';
+    pldUpdateNewEventVenueLabel();
+    const row = document.getElementById('newVenueQuickRow');
+    if (row) row.hidden = false;
+    const q = document.getElementById('newVenueQuickName');
+    if (q) {
+      q.focus();
+      q.select();
+    }
+  }
+  const items = [
+    { id: PLD_PICKER_NONE_ID, primary: '— No venue —', secondary: '' },
+    {
+      id: NEW_EVENT_VENUE_CREATE_VALUE,
+      primary: '+ Create new venue…',
+      secondary: 'Quick add name and city',
+    },
+  ];
+  if (typeof pickerItemsFromVenues === 'function') {
+    items.push.apply(items, pickerItemsFromVenues(VENUES));
+  }
+  openPickerModal({
+    title: 'Select venue',
+    items: items,
+    searchPlaceholder: 'Search venue name or city…',
+    emptyMessage: 'No venues match — use “Create new venue” below.',
+    footerButtons: [
+      {
+        label: '+ Create new venue',
+        className: 'btn btn-primary btn-sm',
+        onClick: openVenueQuickAdd,
+      },
+    ],
+    onSelect: function (id) {
+      if (String(id) === NEW_EVENT_VENUE_CREATE_VALUE) {
+        openVenueQuickAdd();
+        return;
+      }
+      const hi = document.getElementById('newEventVenue');
+      if (hi) {
+        hi.value = id == null || id === '' || String(id) === PLD_PICKER_NONE_ID ? '' : String(id);
+      }
+      pldUpdateNewEventVenueLabel();
+      if (typeof pldRefreshNewEventPrimaryContactOptions === 'function') {
+        void pldRefreshNewEventPrimaryContactOptions();
+      }
+    },
+  });
+}
+
+function pldUpdateCalendarQuickClientLabel() {
+  const h = document.getElementById('calQuickClient');
+  const span = document.getElementById('calQuickClientLabel');
+  if (!h || !span) return;
+  const v = h.value ? String(h.value) : '';
+  if (!v) {
+    span.textContent = 'Select client…';
+    return;
+  }
+  const c = CLIENTS.find((x) => String(x.id) === v);
+  span.textContent = c ? c.name : 'Select client…';
+}
+
+function pldUpdateCalendarQuickVenueLabel() {
+  const h = document.getElementById('calQuickVenue');
+  const span = document.getElementById('calQuickVenueLabel');
+  if (!h || !span) return;
+  const v = h.value ? String(h.value) : '';
+  if (!v) {
+    span.textContent = 'Select venue…';
+    return;
+  }
+  const ven = VENUES.find((x) => String(x.id) === v);
+  span.textContent = ven ? `${ven.name} — ${ven.city || ''}` : 'Select venue…';
+}
+
+function pldOpenCalendarQuickClientPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  const items =
+    typeof pickerItemsFromClients === 'function'
+      ? pickerItemsFromClients(CLIENTS)
+      : CLIENTS.map((c) => ({ id: String(c.id), primary: c.name || '—', secondary: '' }));
+  openPickerModal({
+    title: 'Select client',
+    items,
+    emptyMessage: 'No clients. Add one under Clients first.',
+    onSelect(id) {
+      const hi = document.getElementById('calQuickClient');
+      if (hi) hi.value = id;
+      pldUpdateCalendarQuickClientLabel();
+    },
+  });
+}
+
+function pldOpenCalendarQuickVenuePicker() {
+  if (typeof openPickerModal !== 'function') return;
+  const items = [{ id: PLD_PICKER_NONE_ID, primary: '— No venue —', secondary: '' }];
+  if (typeof pickerItemsFromVenues === 'function') {
+    items.push.apply(items, pickerItemsFromVenues(VENUES));
+  }
+  openPickerModal({
+    title: 'Select venue',
+    items,
+    searchPlaceholder: 'Search venue name or city…',
+    onSelect(id) {
+      const hi = document.getElementById('calQuickVenue');
+      if (hi) {
+        hi.value = id == null || id === '' || String(id) === PLD_PICKER_NONE_ID ? '' : String(id);
+      }
+      pldUpdateCalendarQuickVenueLabel();
+    },
+  });
+}
+
+/** Quick Create Event from calendar day modal (`calQuick*` fields). */
+function submitCalendarQuickEventForm() {
+  const nameEl = document.getElementById('calQuickEventName');
+  const clientEl = document.getElementById('calQuickClient');
+  const venueEl = document.getElementById('calQuickVenue');
+  const startEl = document.getElementById('calQuickStart');
+  const endEl = document.getElementById('calQuickEnd');
+  const budgetEl = document.getElementById('calQuickBudget');
+  const priorityEl = document.getElementById('calQuickPriority');
+  const name = nameEl && nameEl.value ? nameEl.value.trim() : '';
+  const client_id = clientEl && clientEl.value ? clientEl.value : '';
+  const venue_id = venueEl && venueEl.value ? venueEl.value : '';
+  const start_date = startEl && startEl.value ? startEl.value : '';
+  const end_date = endEl && endEl.value ? endEl.value : '';
+  const budgetRaw = budgetEl && budgetEl.value !== '' ? Number(budgetEl.value) : 0;
+  const priority = priorityEl && priorityEl.value ? priorityEl.value : 'medium';
+
+  if (!name) {
+    showToast('Event name is required', 'error');
+    return;
+  }
+  if (!client_id) {
+    showToast('Select a client', 'error');
+    return;
+  }
+  if (!start_date || !end_date) {
+    showToast('Start and end dates are required', 'error');
+    return;
+  }
+
+  if (typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST) {
+    void (async () => {
+      const metadata = {};
+      if (budgetRaw > 0) metadata.budget = budgetRaw;
+      metadata.priority = priority;
+      const payload = {
+        name: name,
+        client_id: client_id,
+        venue_id: venue_id || null,
+        start_date: start_date,
+        end_date: end_date,
+        description: null,
+        tags: [],
+        metadata: metadata,
+        custom_fields: {},
+      };
+      const created = await pldCreateEventViaApi(payload);
+      if (created) {
+        showToast('Event created', 'success');
+        closeModal();
+        renderPage(typeof currentPage !== 'undefined' ? currentPage : 'scheduling');
+      }
+    })();
+    return;
+  }
+
+  showToast('Event created successfully! (demo — enable API for real save)', 'success');
+  closeModal();
 }
 
 /** Expand inline "new client" when the catalog is empty; keep open after add failures. */
@@ -494,6 +985,133 @@ function toggleNewClientQuickRow() {
 /**
  * Create a client from the new-event modal, select it, and refresh the dropdown.
  */
+function toggleNewVenueQuickRow() {
+  const row = document.getElementById('newVenueQuickRow');
+  if (!row) return;
+  row.hidden = !row.hidden;
+}
+
+function toggleNewContactQuickRow() {
+  const row = document.getElementById('newContactQuickRow');
+  if (!row) return;
+  row.hidden = !row.hidden;
+}
+
+function submitQuickNewVenueFromEventModal() {
+  const nameEl = document.getElementById('newVenueQuickName');
+  const cityEl = document.getElementById('newVenueQuickCity');
+  const name = nameEl && nameEl.value ? nameEl.value.trim() : '';
+  const city = cityEl && cityEl.value ? cityEl.value.trim() : '';
+  if (!name) {
+    if (typeof showToast === 'function') showToast('Venue name is required', 'error');
+    return;
+  }
+
+  if (typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST) {
+    void (async () => {
+      if (typeof window.pldApiFetch !== 'function') {
+        if (typeof showToast === 'function') showToast('API not available', 'error');
+        return;
+      }
+      const res = await window.pldApiFetch('/api/v1/venues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          city: city || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const msg =
+          res.body && res.body.errors && res.body.errors[0] && res.body.errors[0].message;
+        if (typeof showToast === 'function') showToast(msg || 'Could not create venue', 'error');
+        return;
+      }
+      const data = res.body && res.body.data;
+      if (!data || !data.id) return;
+      if (typeof window.pldFetchVenuesFromApiIfConfigured === 'function') {
+        await window.pldFetchVenuesFromApiIfConfigured('');
+      }
+      const hi = document.getElementById('newEventVenue');
+      if (hi) hi.value = String(data.id);
+      pldUpdateNewEventVenueLabel();
+      if (nameEl) nameEl.value = '';
+      if (cityEl) cityEl.value = '';
+      const row = document.getElementById('newVenueQuickRow');
+      if (row) row.hidden = true;
+      if (typeof showToast === 'function') showToast('Venue added', 'success');
+      if (typeof pldRefreshNewEventPrimaryContactOptions === 'function') {
+        void pldRefreshNewEventPrimaryContactOptions();
+      }
+    })();
+    return;
+  }
+
+  const id =
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : 'vn-' + String(Date.now());
+  if (typeof VENUES !== 'undefined' && Array.isArray(VENUES)) {
+    VENUES.push({ id: id, name: name, city: city, address: '', notes: '' });
+  }
+  const hi = document.getElementById('newEventVenue');
+  if (hi) hi.value = String(id);
+  pldUpdateNewEventVenueLabel();
+  if (nameEl) nameEl.value = '';
+  if (cityEl) cityEl.value = '';
+  const row = document.getElementById('newVenueQuickRow');
+  if (row) row.hidden = true;
+  if (typeof showToast === 'function') showToast('Venue added (local demo)', 'success');
+}
+
+function submitQuickNewContactFromEventModal() {
+  const nameEl = document.getElementById('newContactQuickName');
+  const emailEl = document.getElementById('newContactQuickEmail');
+  const name = nameEl && nameEl.value ? nameEl.value.trim() : '';
+  const email = emailEl && emailEl.value ? emailEl.value.trim() : '';
+  if (!name) {
+    if (typeof showToast === 'function') showToast('Contact name is required', 'error');
+    return;
+  }
+  const clientEl = document.getElementById('newEventClient');
+  const client_id =
+    clientEl && clientEl.value && String(clientEl.value) !== NEW_EVENT_CLIENT_CREATE_VALUE
+      ? String(clientEl.value).trim()
+      : '';
+  if (!client_id) {
+    if (typeof showToast === 'function') showToast('Select a client first', 'warning');
+    return;
+  }
+
+  if (typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST) {
+    void (async () => {
+      if (typeof window.pldCreateContact !== 'function') {
+        if (typeof showToast === 'function') showToast('Contact API not available', 'error');
+        return;
+      }
+      const created = await window.pldCreateContact('client', client_id, {
+        name: name,
+        email: email || null,
+      });
+      if (!created || !created.id) return;
+      const hi = document.getElementById('newEventPrimaryContact');
+      if (hi) hi.value = String(created.id);
+      if (nameEl) nameEl.value = '';
+      if (emailEl) emailEl.value = '';
+      const row = document.getElementById('newContactQuickRow');
+      if (row) row.hidden = true;
+      if (typeof showToast === 'function') showToast('Contact added', 'success');
+      if (typeof pldRefreshNewEventPrimaryContactOptions === 'function') {
+        await pldRefreshNewEventPrimaryContactOptions();
+      }
+      pldUpdateNewEventPrimaryContactLabel();
+    })();
+    return;
+  }
+
+  if (typeof showToast === 'function') showToast('Sign in to API to save contacts', 'warning');
+}
+
 function submitQuickNewClientFromEventModal() {
   const nameEl = document.getElementById('newClientQuickName');
   const name = nameEl && nameEl.value ? nameEl.value.trim() : '';
@@ -510,11 +1128,9 @@ function submitQuickNewClientFromEventModal() {
       }
       const created = await pldCreateClientViaApi({ name: name });
       if (!created) return;
-      const sel = document.getElementById('newEventClient');
-      if (sel) {
-        sel.innerHTML = newEventModalClientOptionsHtml();
-        sel.value = created.id;
-      }
+      const hi = document.getElementById('newEventClient');
+      if (hi) hi.value = String(created.id);
+      pldUpdateNewEventClientLabel();
       if (nameEl) nameEl.value = '';
       const row = document.getElementById('newClientQuickRow');
       if (row && CLIENTS.length > 0) row.hidden = true;
@@ -533,11 +1149,9 @@ function submitQuickNewClientFromEventModal() {
       ? crypto.randomUUID()
       : 'cl-' + String(Date.now());
   CLIENTS.push({ id: id, name: name, contact: '', email: '' });
-  const sel = document.getElementById('newEventClient');
-  if (sel) {
-    sel.innerHTML = newEventModalClientOptionsHtml();
-    sel.value = id;
-  }
+  const hi = document.getElementById('newEventClient');
+  if (hi) hi.value = String(id);
+  pldUpdateNewEventClientLabel();
   if (nameEl) nameEl.value = '';
   const row = document.getElementById('newClientQuickRow');
   if (row) row.hidden = true;
@@ -556,8 +1170,9 @@ function openNewEventModal(prefillStart, prefillEnd) {
         <label class="form-label" style="margin:0;">Client</label>
         <button type="button" class="btn btn-secondary btn-sm" onclick="toggleNewClientQuickRow()" title="Add a new organization">+ New client</button>
       </div>
-      <select class="form-select" id="newEventClient" onchange="onNewEventClientSelectChange(this);if(typeof pldRefreshNewEventPrimaryContactOptions==='function')void pldRefreshNewEventPrimaryContactOptions();">${newEventModalClientOptionsHtml()}</select>
-      <p class="form-hint" style="margin-top:6px;margin-bottom:0;">No client yet? Pick <strong>Create new client…</strong> in the list above, or use <strong>+ New client</strong>.
+      <input type="hidden" id="newEventClient" value="">
+      <button type="button" class="pld-picker-trigger" onclick="pldOpenNewEventClientPicker()"><span id="newEventClientLabel">Select client…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button>
+      <p class="form-hint" style="margin-top:6px;margin-bottom:0;">No client yet? Open the client selector above and pick <strong>+ Create new client…</strong>, or use <strong>+ New client</strong>.
         <a href="javascript:void(0)" style="color:var(--accent-blue);margin-left:6px;" onclick="closeModal();setTimeout(function(){ navigateTo('clients'); }, 50);">Manage all clients</a></p>
       <div id="newClientQuickRow" class="new-client-quick-row" ${quickRowHidden ? 'hidden' : ''} style="margin-top:10px;padding:12px;border-radius:8px;border:1px solid var(--border-default);background:var(--bg-tertiary);">
         <div style="font-size:11px;font-weight:600;color:var(--text-tertiary);margin-bottom:8px;">${noClients ? 'No clients yet — add one to continue' : 'Quick add client'}</div>
@@ -571,8 +1186,56 @@ function openNewEventModal(prefillStart, prefillEnd) {
         </div>
       </div>
     </div>
-    <div class="form-group"><label class="form-label">Venue</label><select class="form-select" id="newEventVenue" onchange="if(typeof pldRefreshNewEventPrimaryContactOptions==='function')void pldRefreshNewEventPrimaryContactOptions();"><option value="">Select venue…</option>${VENUES.map((v) => `<option value="${v.id}">${v.name} — ${v.city}</option>`).join('')}</select></div>
-    <div class="form-group"><label class="form-label">Primary contact</label><select class="form-select" id="newEventPrimaryContact"><option value="">None</option></select><p class="form-hint" style="margin-top:4px;font-size:11px;">Loads CRM contacts for the selected client and venue.</p></div>
+    <div class="form-group new-event-venue-block">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+        <label class="form-label" style="margin:0;">Venue</label>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleNewVenueQuickRow()" title="Add a venue without leaving this form">+ New venue</button>
+      </div>
+      <input type="hidden" id="newEventVenue" value="">
+      <button type="button" class="pld-picker-trigger" onclick="pldOpenNewEventVenuePicker()"><span id="newEventVenueLabel">Select venue…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button>
+      <p class="form-hint" style="margin-top:6px;margin-bottom:0;">Open the picker to search venues or choose <strong>+ Create new venue…</strong>. <a href="javascript:void(0)" style="color:var(--accent-blue);margin-left:4px;" onclick="closeModal();setTimeout(function(){ navigateTo('venues'); }, 50);">Manage all venues</a></p>
+      <div id="newVenueQuickRow" class="new-venue-quick-row" hidden style="margin-top:10px;padding:12px;border-radius:8px;border:1px solid var(--border-default);background:var(--bg-tertiary);">
+        <div style="font-size:11px;font-weight:600;color:var(--text-tertiary);margin-bottom:8px;">Quick add venue</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+          <div style="flex:1;min-width:140px;">
+            <label class="form-label" style="font-size:11px;">Venue name</label>
+            <input type="text" class="form-input" id="newVenueQuickName" placeholder="e.g. Madison Square Garden" autocomplete="organization"
+              onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitQuickNewVenueFromEventModal(); }">
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <label class="form-label" style="font-size:11px;">City (optional)</label>
+            <input type="text" class="form-input" id="newVenueQuickCity" placeholder="e.g. New York" autocomplete="address-level2"
+              onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitQuickNewVenueFromEventModal(); }">
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="submitQuickNewVenueFromEventModal()">Add venue</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-group new-event-contact-block">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+        <label class="form-label" style="margin:0;">Primary contact</label>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleNewContactQuickRow()" title="Add a CRM contact on the selected client">+ New contact</button>
+      </div>
+      <input type="hidden" id="newEventPrimaryContact" value="">
+      <button type="button" class="pld-picker-trigger" onclick="void pldOpenNewEventPrimaryContactPicker()"><span id="newEventPrimaryContactLabel">None</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button>
+      <p class="form-hint" style="margin-top:6px;margin-bottom:0;">Searchable picker of CRM contacts for the selected client and venue. Select a <strong>client</strong> first, then pick a contact or create one.</p>
+      <div id="newContactQuickRow" class="new-contact-quick-row" hidden style="margin-top:10px;padding:12px;border-radius:8px;border:1px solid var(--border-default);background:var(--bg-tertiary);">
+        <div style="font-size:11px;font-weight:600;color:var(--text-tertiary);margin-bottom:8px;">Quick add contact (on selected client)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+          <div style="flex:1;min-width:120px;">
+            <label class="form-label" style="font-size:11px;">Name</label>
+            <input type="text" class="form-input" id="newContactQuickName" placeholder="Contact name" autocomplete="name"
+              onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitQuickNewContactFromEventModal(); }">
+          </div>
+          <div style="flex:1;min-width:140px;">
+            <label class="form-label" style="font-size:11px;">Email (optional)</label>
+            <input type="email" class="form-input" id="newContactQuickEmail" placeholder="name@company.com" autocomplete="email"
+              onkeydown="if(event.key==='Enter'){ event.preventDefault(); submitQuickNewContactFromEventModal(); }">
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="submitQuickNewContactFromEventModal()">Add contact</button>
+        </div>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="newEventStart" value="${startVal}"></div>
       <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-input" id="newEventEnd" value="${endVal}"></div>
@@ -602,6 +1265,11 @@ function openNewEventModal(prefillStart, prefillEnd) {
       void window.pldRefreshNewEventPrimaryContactOptions();
     }, 0);
   }
+  setTimeout(function () {
+    pldUpdateNewEventClientLabel();
+    pldUpdateNewEventVenueLabel();
+    pldUpdateNewEventPrimaryContactLabel();
+  }, 0);
   if (noClients) {
     setTimeout(function () {
       const q = document.getElementById('newClientQuickName');

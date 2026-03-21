@@ -3,7 +3,7 @@
 > **Version:** 1.0.0
 > **Base Path:** `/api/v1/tenant`, `/api/v1/departments`
 > **Owner:** Tenancy Module
-> **Last Updated:** 2026-03-20
+> **Last Updated:** 2026-03-21
 
 ---
 
@@ -12,6 +12,7 @@
 - [Response Envelope](#response-envelope)
 - [Endpoints — Tenant Configuration](#endpoints--tenant-configuration)
 - [POST /api/v1/tenant/reset-data](#post-apiv1tenantreset-data)
+- [POST /api/v1/tenant/seed-demo](#post-apiv1tenantseed-demo)
 - [Endpoints — Departments](#endpoints--departments)
 - [Type Definitions](#type-definitions)
 - [Internal Interface](#internal-interface)
@@ -127,6 +128,62 @@ All responses follow the standard envelope:
 | 500 | Database error during transaction (rolled back) |
 
 **Server:** In `NODE_ENV=production`, the handler returns **403** unless environment variable `PLD_ALLOW_TENANT_DATA_RESET` is set to `1` or `true`. Non-production environments allow reset by default.
+
+---
+
+### POST /api/v1/tenant/seed-demo
+
+**Description:** Inserts **idempotent** demo rows for the current tenant using the same catalog as `npm run db:seed` (see `scripts/seed-demo-catalog.mjs` and `scripts/seed-document-templates.mjs`). The catalog uses the `PLD Demo —` name prefix for distinguishing rows. Includes:
+
+- **Document templates:** Restores the seven fixed HTML templates (same IDs as migrations `010` / `011`) so document generation works after a prior `reset-data` wiped `document_templates`.
+- **Clients:** ~12 named organizations with notes and primary contacts (where applicable).
+- **Venues:** ~10 US cities with addresses.
+- **Vendors:** ~11 suppliers; one vendor linked to a demo client; remainder standalone.
+- **Departments:** Audio, Video, Lighting, Staging, Production (colors / sort order).
+- **Custom field definitions:** Four searchable/event fields (`power_demand_kw`, `broadcast_network`, `rigging_points`, `load_in_notes`) plus matching `custom_field_index` rows where values exist on events.
+- **Personnel:** ~24 crew with unique `@example.com` emails, departments, roles, contractor/full-time mix, day rates, and skills arrays.
+- **Trucks:** Six fleet units (mixed types/statuses).
+- **Events:** ~18 events spanning past/current/future dates; varied status, phase, tags, load-in/out, and `custom_fields` JSON for document merge testing.
+- **Contacts:** Primary contacts on sample clients, venues, and vendors; several events get `primary_contact_id` from the client’s primary contact.
+- **Scheduling:** Crew assignments across flagship events; truck assignments and two truck routes; one soft **scheduling conflict** (personnel double-booking) for UI testing.
+- **Travel:** Flight, car rental, and personal-vehicle records tied to personnel and events.
+- **Financials:** `financial_records` (costs and revenue by category), three **invoices** (`draft` / `sent` / `paid`) with line items; stub `financial_line_items` rows for custom-field testing.
+- **Tasks:** Several tasks (including assignees and one milestone-style row).
+- **Time & pay:** Sample **time entries** and a prior **pay period** with **pay statements** for two personnel.
+- **Search:** After the seed transaction commits, the server runs a full **`search_index` rebuild** for the tenant (same as `syncSearchIndexForTenant`) so unified search immediately indexes seeded entities.
+
+Skips a row when one with the same distinguishing name (or email for personnel), invoice number, or other natural key already exists for the tenant.
+
+**Auth:** Required. Tenant-scoped. Requires `tenancy.settings.edit` (or wildcard `*`).
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| confirm | string | yes | Must be exactly `SEED` |
+
+**Response — `200 OK`:**
+
+```
+{
+  data: {
+    seeded: true,
+    tenant_id: "<uuid>"
+  },
+  meta: null,
+  errors: null
+}
+```
+
+**Error Responses:**
+
+| Status | Condition |
+|---|---|
+| 400 | `confirm` is not `SEED` |
+| 403 | Insufficient permissions, or seed disabled on server (production requires `PLD_ALLOW_TENANT_DEMO_SEED=1`) |
+| 500 | Database error during transaction (rolled back) |
+
+**Server:** In `NODE_ENV=production`, the handler returns **403** unless environment variable `PLD_ALLOW_TENANT_DEMO_SEED` is set to `1` or `true`. Non-production environments allow seed by default.
 
 ---
 

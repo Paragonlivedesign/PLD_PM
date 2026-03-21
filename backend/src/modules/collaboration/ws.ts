@@ -2,6 +2,7 @@ import type { Server } from "node:http";
 import { randomUUID } from "node:crypto";
 import { WebSocketServer } from "ws";
 import type { WebSocket as WsSocket } from "ws";
+import { resolveBearerContext } from "../auth/middleware-support.js";
 
 /** ws `WebSocket.OPEN` — avoid clashing with DOM `WebSocket` type. */
 const WS_OPEN = 1;
@@ -9,11 +10,16 @@ const WS_OPEN = 1;
 type ClientWs = WsSocket & {
   authed?: boolean;
   tenantId?: string;
+  userId?: string;
   channels?: Set<string>;
 };
 
 const uuidRe =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function devHeadersAllowed(): boolean {
+  return process.env.PLD_DEV_AUTH_HEADERS !== "false";
+}
 
 function broadcastRoom(
   room: Set<ClientWs>,
@@ -27,9 +33,31 @@ function broadcastRoom(
   }
 }
 
+async function resolveWsAuth(
+  token: string,
+  tenantIdFromMessage: string | undefined,
+): Promise<{ tenantId: string; userId: string } | null> {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const ctx = await resolveBearerContext(trimmed);
+  if (ctx) {
+    return { tenantId: ctx.tenantId, userId: ctx.userId };
+  }
+
+  if (devHeadersAllowed() && trimmed === "dev") {
+    const tid = tenantIdFromMessage?.trim();
+    if (tid && uuidRe.test(tid)) {
+      return { tenantId: tid, userId: "00000000-0000-4000-8000-000000000001" };
+    }
+  }
+
+  return null;
+}
+
 /**
- * `/ws` — auth message then optional `subscribe` for tenant-scoped channels.
- * MVP: non-empty token + valid `tenant_id` UUID; optional in-memory presence counts per channel.
+ * `/ws` — `auth` / `reauth` with JWT validation (`resolveBearerContext`), then `subscribe` / `unsubscribe`.
+ * Dev-only: when `PLD_DEV_AUTH_HEADERS` is not `false`, `token: "dev"` + `tenant_id` UUID is accepted (matches UI presence helper).
  */
 export function attachWebSocketServer(server: Server): void {
   const wss = new WebSocketServer({ noServer: true });
@@ -56,6 +84,23 @@ export function attachWebSocketServer(server: Server): void {
     ws.channels?.clear();
   }
 
+  function leaveChannel(ws: ClientWs, ch: string): void {
+    const set = rooms.get(ch);
+    if (!set) return;
+    set.delete(ws);
+    ws.channels?.delete(ch);
+    if (set.size === 0) rooms.delete(ch);
+    else {
+      broadcastRoom(set, {
+        id: randomUUID(),
+        type: "presence_update",
+        channel: ch,
+        payload: { connected: set.size },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+
   server.on("upgrade", (req, socket, head) => {
     const path = req.url?.split("?")[0];
     if (path !== "/ws") {
@@ -78,91 +123,116 @@ export function attachWebSocketServer(server: Server): void {
       });
 
       ws.on("message", (raw) => {
-        try {
-          const msg = JSON.parse(raw.toString()) as {
-            type?: string;
-            token?: string;
-            tenant_id?: string;
-            channel?: string;
-          };
-          if (msg.type === "auth" && msg.token && String(msg.token).length > 0) {
-            const tid = msg.tenant_id?.trim();
-            if (!tid || !uuidRe.test(tid)) {
+        void (async () => {
+          try {
+            const msg = JSON.parse(raw.toString()) as {
+              type?: string;
+              token?: string;
+              tenant_id?: string;
+              channel?: string;
+            };
+            const msgType = msg.type;
+
+            if (msgType === "auth" || msgType === "reauth") {
+              const tok = msg.token != null ? String(msg.token) : "";
+              const resolved = await resolveWsAuth(tok, msg.tenant_id);
+              if (!resolved) {
+                c.send(
+                  JSON.stringify({
+                    id: randomUUID(),
+                    type: "auth_error",
+                    channel: "system",
+                    payload: {
+                      code: "unauthorized",
+                      message: "Invalid or expired access token",
+                    },
+                    timestamp: new Date().toISOString(),
+                  }),
+                );
+                c.close(4401, "unauthorized");
+                return;
+              }
+              if (msgType === "reauth" && c.authed && c.tenantId && c.tenantId !== resolved.tenantId) {
+                leaveAllChannels(c);
+              }
+              c.authed = true;
+              c.tenantId = resolved.tenantId;
+              c.userId = resolved.userId;
+              clearTimeout(timer);
               c.send(
                 JSON.stringify({
                   id: randomUUID(),
-                  type: "auth_error",
+                  type: "auth_ok",
                   channel: "system",
-                  payload: { code: "tenant_required", message: "tenant_id UUID required in auth payload" },
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-              c.close(4401, "invalid tenant");
-              return;
-            }
-            c.authed = true;
-            c.tenantId = tid;
-            clearTimeout(timer);
-            c.send(
-              JSON.stringify({
-                id: randomUUID(),
-                type: "auth_ok",
-                channel: "system",
-                payload: { tenant_id: tid },
-                timestamp: new Date().toISOString(),
-              }),
-            );
-            return;
-          }
-          if (!c.authed || !c.tenantId) return;
-
-          if (msg.type === "ping") {
-            c.send(
-              JSON.stringify({
-                id: randomUUID(),
-                type: "pong",
-                channel: "system",
-                payload: {},
-                timestamp: new Date().toISOString(),
-              }),
-            );
-            return;
-          }
-
-          if (msg.type === "subscribe" && msg.channel) {
-            const ch = String(msg.channel);
-            if (!ch.startsWith(`tenant:${c.tenantId}:`)) {
-              c.send(
-                JSON.stringify({
-                  id: randomUUID(),
-                  type: "error",
-                  channel: "system",
-                  payload: { code: "forbidden_channel", message: "Channel must start with tenant:{your_tenant_id}:" },
+                  payload: {
+                    tenant_id: resolved.tenantId,
+                    user_id: resolved.userId,
+                  },
                   timestamp: new Date().toISOString(),
                 }),
               );
               return;
             }
-            leaveAllChannels(c);
-            let set = rooms.get(ch);
-            if (!set) {
-              set = new Set();
-              rooms.set(ch, set);
+
+            if (!c.authed || !c.tenantId) return;
+
+            if (msgType === "ping") {
+              c.send(
+                JSON.stringify({
+                  id: randomUUID(),
+                  type: "pong",
+                  channel: "system",
+                  payload: {},
+                  timestamp: new Date().toISOString(),
+                }),
+              );
+              return;
             }
-            set.add(c);
-            c.channels!.add(ch);
-            broadcastRoom(set, {
-              id: randomUUID(),
-              type: "presence_update",
-              channel: ch,
-              payload: { connected: set.size },
-              timestamp: new Date().toISOString(),
-            });
-            return;
+
+            if (msgType === "subscribe" && msg.channel) {
+              const ch = String(msg.channel);
+              if (!ch.startsWith(`tenant:${c.tenantId}:`)) {
+                c.send(
+                  JSON.stringify({
+                    id: randomUUID(),
+                    type: "error",
+                    channel: "system",
+                    payload: {
+                      code: "forbidden_channel",
+                      message: "Channel must start with tenant:{your_tenant_id}:",
+                    },
+                    timestamp: new Date().toISOString(),
+                  }),
+                );
+                return;
+              }
+              leaveAllChannels(c);
+              let set = rooms.get(ch);
+              if (!set) {
+                set = new Set();
+                rooms.set(ch, set);
+              }
+              set.add(c);
+              c.channels!.add(ch);
+              broadcastRoom(set, {
+                id: randomUUID(),
+                type: "presence_update",
+                channel: ch,
+                payload: { connected: set.size },
+                timestamp: new Date().toISOString(),
+              });
+              return;
+            }
+
+            if (msgType === "unsubscribe" && msg.channel) {
+              const ch = String(msg.channel);
+              leaveChannel(c, ch);
+              return;
+            }
+          } catch {
+            /* ignore malformed */
           }
-        } catch {
-          /* ignore malformed */
-        }
+        })();
       });
     });
   });

@@ -296,3 +296,14 @@ export async function selectEventsByClient(client, tenantId, clientId, status, l
     const r = await client.query(`SELECT e.* FROM events e ${where} ORDER BY e.start_date ASC LIMIT ${limit}`, values);
     return r.rows.map(mapEventRow);
 }
+/** Includes soft-deleted rows (deleted_at set). */
+export async function getEventRowByIdAnyDeletedState(client, tenantId, id) {
+    const r = await client.query(`SELECT * FROM events WHERE tenant_id = $1 AND id = $2`, [tenantId, id]);
+    return r.rows[0] ? mapEventRow(r.rows[0]) : null;
+}
+export async function restoreSoftDeletedEventRow(client, tenantId, id) {
+    const r = await client.query(`UPDATE events SET deleted_at = NULL, updated_at = NOW()
+     WHERE tenant_id = $1 AND id = $2 AND deleted_at IS NOT NULL
+     RETURNING *`, [tenantId, id]);
+    return r.rows[0] ? mapEventRow(r.rows[0]) : null;
+}

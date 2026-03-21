@@ -23,8 +23,9 @@ describe("auth HTTP API", () => {
   const MANAGER_ROLE = "10000000-0000-0000-0000-000000000002";
   const VIEWER_USER_ID = "40000000-0000-0000-0000-000000000001";
   const MANAGER_USER_ID = "30000000-0000-0000-0000-000000000001";
-  const DEMO_PASSWORD_HASH =
-    "$2b$12$JsaixFG/Bwrvx1Y8W9GK/ePieEEGvY93rOqA82jMTBqf73O/UKENm";
+  /** Dev seed password `pld` — matches migration 018 / seed-postgres.mjs */
+  const PLD_BCRYPT =
+    "$2b$12$7zbywjby2mQvBBlSxE7.gOw5jVUQOV4QZVot/Nx8PjDobit0vyuQC";
 
   beforeAll(async () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || "vitest-jwt-secret-min-32-chars!!";
@@ -44,14 +45,20 @@ describe("auth HTTP API", () => {
         `INSERT INTO users (id, tenant_id, email, password_hash, role_id, first_name, last_name, is_active)
          VALUES ($1, $2, 'viewer-sess@demo.local', $3, $4, 'T', 'V', true)
          ON CONFLICT (id) DO NOTHING`,
-        [VIEWER_USER_ID, DEMO_TENANT, DEMO_PASSWORD_HASH, VIEWER_ROLE],
+        [VIEWER_USER_ID, DEMO_TENANT, PLD_BCRYPT, VIEWER_ROLE],
       );
       await pool.query(
         `INSERT INTO users (id, tenant_id, email, password_hash, role_id, first_name, last_name, is_active)
          VALUES ($1, $2, 'manager-sess@demo.local', $3, $4, 'T', 'M', true)
          ON CONFLICT (id) DO NOTHING`,
-        [MANAGER_USER_ID, DEMO_TENANT, DEMO_PASSWORD_HASH, MANAGER_ROLE],
+        [MANAGER_USER_ID, DEMO_TENANT, PLD_BCRYPT, MANAGER_ROLE],
       );
+      const ADMIN_ID = "00000000-0000-0000-0000-000000000002";
+      const resetPwd = `UPDATE users SET password_hash = $1, failed_login_attempts = 0, locked_until = NULL, updated_at = NOW()
+        WHERE tenant_id = $2::uuid AND id = $3::uuid`;
+      await pool.query(resetPwd, [PLD_BCRYPT, DEMO_TENANT, ADMIN_ID]);
+      await pool.query(resetPwd, [PLD_BCRYPT, DEMO_TENANT, VIEWER_USER_ID]);
+      await pool.query(resetPwd, [PLD_BCRYPT, DEMO_TENANT, MANAGER_USER_ID]);
     } catch {
       skip = true;
     }
@@ -91,7 +98,7 @@ describe("auth HTTP API", () => {
       .post("/api/v1/auth/login")
       .send({
         email: "admin@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     expect(login.status).toBe(200);
@@ -112,7 +119,7 @@ describe("auth HTTP API", () => {
       .post("/api/v1/auth/login")
       .send({
         email: "admin@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     const refresh = await request(app)
@@ -141,14 +148,14 @@ describe("auth HTTP API", () => {
       .post("/api/v1/auth/login")
       .send({
         email: "admin@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     const b = await request(app)
       .post("/api/v1/auth/login")
       .send({
         email: "admin@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     expect(a.status).toBe(200);
@@ -173,7 +180,7 @@ describe("auth HTTP API", () => {
       .post("/api/v1/auth/login")
       .send({
         email: "viewer-sess@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     expect(viewerLogin.status).toBe(200);
@@ -182,7 +189,7 @@ describe("auth HTTP API", () => {
       .post("/api/v1/auth/login")
       .send({
         email: "admin@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     expect(adminLogin.status).toBe(200);
@@ -202,7 +209,7 @@ describe("auth HTTP API", () => {
       .post("/api/v1/auth/login")
       .send({
         email: "admin@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     expect(adminLogin.status).toBe(200);
@@ -219,7 +226,7 @@ describe("auth HTTP API", () => {
       .post("/api/v1/auth/login")
       .send({
         email: "manager-sess@demo.local",
-        password: "password",
+        password: "pld",
         tenant_slug: "demo",
       });
     expect(mgr.status).toBe(200);

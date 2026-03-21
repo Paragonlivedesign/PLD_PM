@@ -1,0 +1,459 @@
+/* CRM org / contact / personnel profile pages */
+.crm-profile-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.crm-profile-hero {
+  position: relative;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-subtle);
+}
+
+.crm-profile-cover {
+  height: 120px;
+  background: linear-gradient(135deg, var(--bg-tertiary), #1e293b);
+  background-size: cover;
+  background-position: center;
+}
+
+.crm-profile-hero-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 0 20px 16px;
+  margin-top: -40px;
+  position: relative;
+}
+
+.crm-profile-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: 3px solid var(--bg-primary);
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  overflow: hidden;
+}
+
+.crm-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.crm-profile-avatar--photo {
+  padding: 0;
+}
+
+.pld-venue-brand-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pld-venue-map-embed-wrap {
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  margin: 12px 0;
+}
+
+.pld-venue-map-embed {
+  width: 100%;
+  height: 320px;
+  border: 0;
+  display: block;
+  background: var(--bg-tertiary);
+}
+
+.pld-venue-map-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.pld-venue-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.pld-venue-readonly {
+  display: grid;
+  grid-template-columns: minmax(100px, 160px) 1fr;
+  gap: 8px 16px;
+  font-size: 13px;
+  margin: 0;
+}
+
+.pld-venue-readonly dt {
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin: 0;
+}
+
+.pld-venue-readonly dd {
+  margin: 0;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.pld-venue-readonly-line {
+  margin: 0;
+}
+
+.pld-venue-overview-readonly .pld-venue-edit-start {
+  margin-top: 16px;
+}
+
+.pld-venue-section-title {
+  margin-top: 20px !important;
+  margin-bottom: 10px !important;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary) !important;
+}
+
+.pld-venue-brand-hint {
+  margin-top: 0 !important;
+  margin-bottom: 14px !important;
+  font-size: 12px !important;
+}
+
+.pld-venue-branding-edit {
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
+}
+
+.pld-venue-brand-compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pld-venue-brand-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  min-width: 48px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pld-venue-file-quiet {
+  max-width: 220px;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.pld-venue-mapslink-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pld-venue-mapslink-row .form-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.pld-venue-edit-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.crm-profile-title-block {
+  flex: 1;
+  padding-bottom: 4px;
+}
+
+.crm-profile-title-block h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.crm-profile-tagline {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.crm-profile-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.crm-profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+}
+
+.crm-profile-tabs button {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.crm-profile-tabs button:hover {
+  color: var(--text-secondary);
+}
+
+.crm-profile-tabs button.active {
+  color: var(--accent-green);
+  border-bottom-color: var(--accent-green);
+}
+
+.crm-profile-panel {
+  padding: 4px 0 24px;
+}
+
+.crm-profile-panel h3 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.crm-profile-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px 16px;
+}
+
+.crm-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crm-doc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.crm-contact-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.crm-contact-subtabs button {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.crm-contact-subtabs button.active {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.crm-json-preview {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.personnel-profile-page .modal-tabs {
+  margin-top: 0;
+}
+
+.personnel-profile-page .modal-tab-panel {
+  display: none;
+  padding-top: 16px;
+}
+
+.personnel-profile-page .modal-tab-panel.active {
+  display: block;
+}
+
+.personnel-profile-page .modal-tab.active {
+  color: var(--accent-green);
+  border-bottom-color: var(--accent-green);
+}
+
+/* Personnel full-page profile header */
+.personnel-profile-page .pld-pp-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-bottom: 8px;
+}
+
+.personnel-profile-page .pld-pp-avatar {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* Photo URL present: initials sit behind image; broken URL hides image */
+.personnel-profile-page .pld-pp-avatar--with-photo {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+.personnel-profile-page .pld-pp-avatar--with-photo .pld-pp-avatar-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  z-index: 0;
+}
+
+.personnel-profile-page .pld-pp-avatar-img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.personnel-profile-page .pld-pp-avatar-img.is-broken {
+  display: none !important;
+}
+
+.personnel-profile-page .pld-pp-photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+}
+
+.personnel-profile-page .pld-pp-hero-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.personnel-profile-page .pld-pp-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.personnel-profile-page .pld-pp-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.personnel-profile-page .pld-pp-chip--muted {
+  opacity: 0.95;
+}
+
+.personnel-profile-page .pld-pp-chip--ok {
+  border-color: color-mix(in srgb, var(--accent-green) 50%, transparent);
+  color: var(--accent-green);
+}
+
+.personnel-profile-page .pld-pp-chip--warn {
+  border-color: color-mix(in srgb, var(--accent-amber) 45%, transparent);
+  color: var(--accent-amber);
+}
+
+.personnel-profile-page .pld-pp-doc-pill {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.personnel-profile-page .pld-pp-doc-pill--ok {
+  color: var(--accent-green);
+  background: color-mix(in srgb, var(--accent-green) 12%, transparent);
+}
+
+.personnel-profile-page .pld-pp-doc-pill--warn {
+  color: var(--accent-amber);
+  background: color-mix(in srgb, var(--accent-amber) 12%, transparent);
+}
+
+.personnel-profile-page .pld-pp-doc-pill--missing {
+  color: var(--text-tertiary);
+}
+
+.personnel-profile-page .pld-pp-assignments-wrap {
+  margin-top: 4px;
+}
+
+.personnel-profile-page .pld-pp-assignments-table {
+  font-size: 13px;
+}
+
+.personnel-profile-page .pld-pp-assignments-table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+}

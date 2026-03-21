@@ -20,7 +20,19 @@ function initNavigation() {
 function navigateTo(page) {
   currentPage = page;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const activeNav = document.querySelector(`.nav-item[data-page="${page}"]`);
+  let activeNav = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (!activeNav) {
+    if (page === 'task') activeNav = document.querySelector('.nav-item[data-page="tasks"]');
+    else if (page === 'client') activeNav = document.querySelector('.nav-item[data-page="clients"]');
+    else if (page === 'vendor') activeNav = document.querySelector('.nav-item[data-page="vendors"]');
+    else if (page === 'venue') activeNav = document.querySelector('.nav-item[data-page="venues"]');
+    else if (page === 'contact') {
+      const k = typeof selectedContactParentKind === 'string' ? selectedContactParentKind : '';
+      if (k === 'client') activeNav = document.querySelector('.nav-item[data-page="clients"]');
+      else if (k === 'vendor') activeNav = document.querySelector('.nav-item[data-page="vendors"]');
+      else if (k === 'venue') activeNav = document.querySelector('.nav-item[data-page="venues"]');
+    } else if (page === 'personnel-profile') activeNav = document.querySelector('.nav-item[data-page="personnel"]');
+  }
   if (activeNav) activeNav.classList.add('active');
 
   const labels = {
@@ -36,6 +48,7 @@ function navigateTo(page) {
     clients: 'Clients',
     venues: 'Venues',
     vendors: 'Vendors',
+    contacts: 'Contacts',
     settings: 'Settings',
     login: 'Sign in',
     'forgot-password': 'Forgot password',
@@ -45,17 +58,76 @@ function navigateTo(page) {
     'invite-user': 'Invite user',
     'platform-admin': 'Master admin',
     search: 'Search',
+    tasks: 'Tasks',
+    task: 'Task',
+    client: 'Client',
+    vendor: 'Vendor',
+    venue: 'Venue',
+    contact: 'Contact',
+    'personnel-profile': 'Personnel profile',
   };
 
+  const bc = document.getElementById('breadcrumb');
   if (page === 'event' && selectedEventId) {
     const ev = EVENTS.find(e => e.id === selectedEventId);
-    document.getElementById('breadcrumb').innerHTML = `
+    bc.innerHTML = `
       <span class="breadcrumb-item breadcrumb-link" onclick="navigateTo('events')">Events</span>
       <span class="breadcrumb-sep">›</span>
       <span class="breadcrumb-item">${ev ? ev.name : 'Event'}</span>
     `;
+  } else if (page === 'client' && typeof selectedClientId !== 'undefined' && selectedClientId && typeof CLIENTS !== 'undefined') {
+    const c = CLIENTS.find(x => String(x.id) === String(selectedClientId));
+    bc.innerHTML = `
+      <span class="breadcrumb-item breadcrumb-link" onclick="navigateTo('clients')">Clients</span>
+      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-item">${c ? c.name : 'Client'}</span>
+    `;
+  } else if (page === 'vendor' && typeof selectedVendorId !== 'undefined' && selectedVendorId && typeof VENDORS !== 'undefined') {
+    const v = VENDORS.find(x => String(x.id) === String(selectedVendorId));
+    bc.innerHTML = `
+      <span class="breadcrumb-item breadcrumb-link" onclick="navigateTo('vendors')">Vendors</span>
+      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-item">${v ? v.name : 'Vendor'}</span>
+    `;
+  } else if (page === 'venue' && typeof selectedVenueId !== 'undefined' && selectedVenueId && typeof VENUES !== 'undefined') {
+    const v = VENUES.find(x => String(x.id) === String(selectedVenueId));
+    bc.innerHTML = `
+      <span class="breadcrumb-item breadcrumb-link" onclick="navigateTo('venues')">Venues</span>
+      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-item">${v ? v.name : 'Venue'}</span>
+    `;
+  } else if (
+    page === 'contact' &&
+    typeof selectedContactParentKind !== 'undefined' &&
+    selectedContactId &&
+    typeof window.pldCrmContactBreadcrumbHtml === 'function'
+  ) {
+    bc.innerHTML = window.pldCrmContactBreadcrumbHtml();
+  } else if (
+    page === 'personnel-profile' &&
+    typeof selectedPersonnelId !== 'undefined' &&
+    selectedPersonnelId &&
+    typeof PERSONNEL !== 'undefined'
+  ) {
+    const p = PERSONNEL.find(x => String(x.id) === String(selectedPersonnelId));
+    bc.innerHTML = `
+      <span class="breadcrumb-item breadcrumb-link" onclick="navigateTo('personnel')">Personnel</span>
+      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-item">${p ? p.name : 'Profile'}</span>
+    `;
+  } else if (page === 'task' && typeof selectedTaskId !== 'undefined' && selectedTaskId) {
+    const row =
+      typeof window.__pldTaskDetailRow !== 'undefined' && window.__pldTaskDetailRow
+        ? window.__pldTaskDetailRow
+        : null;
+    const title = row && row.title ? row.title : 'Task';
+    bc.innerHTML = `
+      <span class="breadcrumb-item breadcrumb-link" onclick="navigateTo('tasks')">Tasks</span>
+      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-item">${title}</span>
+    `;
   } else {
-    document.getElementById('breadcrumb').innerHTML = `
+    bc.innerHTML = `
       <span class="breadcrumb-item">${labels[page] || page}</span>
     `;
   }

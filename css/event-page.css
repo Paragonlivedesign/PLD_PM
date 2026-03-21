@@ -963,6 +963,83 @@
   color: var(--text-tertiary);
 }
 
+.ep-meta-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ep-meta-icon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.ep-meta-muted {
+  color: var(--text-tertiary);
+  font-style: normal;
+}
+
+button.ep-meta-nav {
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+
+button.ep-meta-nav:hover {
+  color: var(--accent-primary, var(--accent-blue, #3b82f6));
+  text-decoration-color: currentColor;
+}
+
+button.ep-meta-nav:focus-visible {
+  outline: 2px solid var(--accent-primary, var(--accent-blue, #3b82f6));
+  outline-offset: 2px;
+}
+
+button.ep-meta-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 2px;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+button.ep-meta-edit:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+button.ep-meta-edit:focus-visible {
+  outline: 2px solid var(--accent-primary, var(--accent-blue, #3b82f6));
+  outline-offset: 1px;
+}
+
+.ep-meta-edit-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
 /* Event Page Tabs */
 .ep-tabs {
   display: flex;

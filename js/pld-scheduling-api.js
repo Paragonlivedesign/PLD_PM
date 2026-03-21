@@ -386,8 +386,8 @@
   global.pldSubmitAssignTruckToEventFromModal = async function pldSubmitAssignTruckToEventFromModal() {
     const truckEl = document.getElementById("assignTruckToEventTruckId");
     const truckId = truckEl && truckEl.value ? truckEl.value.trim() : "";
-    const sel = document.getElementById("assignTruckToEventSelect");
-    const eventId = sel && sel.value ? sel.value.trim() : "";
+    const eventIdEl = document.getElementById("assignTruckToEventEventId");
+    const eventId = eventIdEl && eventIdEl.value ? eventIdEl.value.trim() : "";
     if (!truckId || !eventId) {
       if (typeof global.showToast === "function") {
         global.showToast("Choose an event.", "warning");
@@ -406,7 +406,7 @@
     }
     const depEl = document.getElementById("assignTruckToEventDeparture");
     const retEl = document.getElementById("assignTruckToEventReturn");
-    const driverEl = document.getElementById("assignTruckToEventDriver");
+    const driverEl = document.getElementById("assignTruckToEventDriverId");
     const notesEl = document.getElementById("assignTruckToEventNotes");
     let startDate = (depEl && depEl.value) || ev.startDate || "";
     let endDate = (retEl && retEl.value) || ev.endDate || startDate;
@@ -463,6 +463,41 @@
     if (typeof global.updateSidebarNavCounts === "function") {
       global.updateSidebarNavCounts();
     }
+  };
+
+  /**
+   * GET /api/v1/assignments/crew?personnel_id=… — for personnel profile event history, dashboards, etc.
+   * @param {string} personnelId
+   * @param {{ limit?: number, date_range_start?: string, date_range_end?: string }} [opts]
+   */
+  global.pldFetchCrewAssignmentsForPersonnel = async function (personnelId, opts) {
+    opts = opts || {};
+    const pid = String(personnelId || "").trim();
+    if (!pid || typeof global.pldApiFetch !== "function") {
+      return { ok: false, rows: [], meta: null, error: "No API" };
+    }
+    const q = new URLSearchParams({
+      personnel_id: pid,
+      sort_by: "start_date",
+      sort_order: "desc",
+      limit: String(opts.limit != null ? opts.limit : 100),
+    });
+    if (opts.date_range_start) q.set("date_range_start", opts.date_range_start);
+    if (opts.date_range_end) q.set("date_range_end", opts.date_range_end);
+    const r = await global.pldApiFetch("/api/v1/assignments/crew?" + q.toString(), { method: "GET" });
+    if (!r.ok || !r.body) {
+      const msg =
+        r.body && r.body.errors && r.body.errors[0] && r.body.errors[0].message
+          ? String(r.body.errors[0].message)
+          : "Request failed";
+      return { ok: false, rows: [], meta: null, error: msg };
+    }
+    return {
+      ok: true,
+      rows: Array.isArray(r.body.data) ? r.body.data : [],
+      meta: r.body.meta || null,
+      error: null,
+    };
   };
 
 })(typeof window !== "undefined" ? window : globalThis);

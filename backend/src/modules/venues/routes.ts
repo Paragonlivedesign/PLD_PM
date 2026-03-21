@@ -11,10 +11,14 @@ import { routeParam } from "../../core/route-params.js";
 import { createContactsNestedRouter } from "../contacts/nested-routes.js";
 import * as repo from "./repository.js";
 import {
+  bannerPreviewQuerySchema,
   createVenueSchema,
   listVenuesQuerySchema,
+  resolveMapsLinkSchema,
   updateVenueSchema,
 } from "./schemas.js";
+import { resolveMapsLink } from "./resolve-maps-link.js";
+import { fetchVenueBannerPng } from "./venue-banner.js";
 import { writeAuditLog } from "../audit/service.js";
 import { removeFromIndex } from "../search/service.js";
 import { syncVenueSearchRow } from "../search/sync-entity.js";
@@ -92,6 +96,24 @@ venuesRouter.post(
   }),
 );
 
+venuesRouter.post(
+  "/resolve-maps-link",
+  requirePermission("venues:update"),
+  asyncHandler(async (req, res) => {
+    try {
+      const body = resolveMapsLinkSchema.parse(req.body);
+      const data = await resolveMapsLink(body.url);
+      res.json(ok(data));
+    } catch (e) {
+      if (e instanceof ZodError) {
+        res.status(400).json(singleError("validation", e.message, 400).body);
+        return;
+      }
+      throw e;
+    }
+  }),
+);
+
 venuesRouter.get(
   "/",
   requirePermission("venues:read"),
@@ -117,6 +139,49 @@ venuesRouter.get(
         meta: { cursor: next, has_more: next != null, total_count: total },
         errors: null,
       });
+    } catch (e) {
+      if (e instanceof ZodError) {
+        res.status(400).json(singleError("validation", e.message, 400).body);
+        return;
+      }
+      throw e;
+    }
+  }),
+);
+
+venuesRouter.get(
+  "/:id/banner-preview",
+  requirePermission("venues:read"),
+  asyncHandler(async (req, res) => {
+    try {
+      const q = bannerPreviewQuerySchema.parse(req.query);
+      const row = await repo.getVenueById(pool, req.ctx.tenantId, routeParam(req.params.id));
+      if (!row) {
+        res.status(404).json(singleError("not_found", "Venue not found", 404).body);
+        return;
+      }
+      if (row.latitude == null || row.longitude == null) {
+        res.status(404).json(singleError("not_found", "Venue has no coordinates", 404).body);
+        return;
+      }
+      const lat = Number(row.latitude);
+      const lng = Number(row.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        res.status(404).json(singleError("not_found", "Invalid coordinates", 404).body);
+        return;
+      }
+      const png = await fetchVenueBannerPng({
+        lat,
+        lng,
+        variant: q.variant,
+      });
+      if (!png?.length) {
+        res.status(404).json(singleError("not_found", "Banner image unavailable", 404).body);
+        return;
+      }
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      res.send(png);
     } catch (e) {
       if (e instanceof ZodError) {
         res.status(400).json(singleError("validation", e.message, 400).body);

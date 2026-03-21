@@ -109,6 +109,7 @@ function renderCommandResults(query, container) {
     html += '<div class="command-result-group"><div class="command-result-group-label">Commands</div>';
     const navPages = [
       ['dashboard', 'Dashboard'],
+      ['tasks', 'Tasks'],
       ['events', 'Events'],
       ['scheduling', 'Scheduling'],
       ['personnel', 'Personnel'],

@@ -13,7 +13,7 @@ export const vendorsRouter = Router();
 vendorsRouter.get("/", requirePermission("vendors:read"), asyncHandler(async (req, res) => {
     try {
         const q = listVendorsQuerySchema.parse(req.query);
-        const limit = Math.min(100, Math.max(1, q.limit ?? 50));
+        const limit = Math.min(200, Math.max(1, q.limit ?? 50));
         const rows = await repo.listVendors(pool, req.ctx.tenantId, limit, q.search);
         res.json(ok(rows, { total_count: rows.length }));
     }

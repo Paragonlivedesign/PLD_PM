@@ -3,7 +3,17 @@
 > **Version:** 1.0.0
 > **Base Path:** `/api/v1/notifications` (REST), `/ws` (WebSocket)
 > **Owner:** Collaboration Module
-> **Last Updated:** 2026-02-15
+> **Last Updated:** 2026-03-22
+
+---
+
+## Implementation status (server)
+
+| Area | Status |
+|------|--------|
+| REST `/api/v1/notifications` | Implemented |
+| WebSocket `/ws` | **JWT auth:** `auth` / `reauth` frames validate the access token via the same path as HTTP Bearer (`resolveBearerContext`). `tenant_id` and `user_id` on the connection come from the token claims (not from client-supplied tenant alone). **Dev only:** when `PLD_DEV_AUTH_HEADERS` is not set to `false`, `token: "dev"` plus `tenant_id` UUID in the `auth` frame is accepted for local presence/testing (matches [`js/pld-presence-ws.js`](../js/pld-presence-ws.js)). |
+| Channel permission matrix below | **Partial:** subscription is allowed only for channels under `tenant:{resolvedTenantId}:*`. Patterns like `event:{id}` / `user:{id}` are not yet enforced server-side. |
 
 ---
 
@@ -54,8 +64,8 @@ WebSocket messages use a separate envelope defined in [Message Envelope](#websoc
 
 | Frame Type | Payload | Description |
 |---|---|---|
-| `auth` | `{ token: string }` | Initial authentication (must be sent within 5 seconds) |
-| `reauth` | `{ token: string }` | Token refresh during active connection |
+| `auth` | `{ token: string, tenant_id?: string }` | Initial authentication (must be sent within 5 seconds). `tenant_id` is **ignored** when the token is a valid JWT (tenant comes from the token). Optional `tenant_id` is used only for the **dev** token path (see Implementation status). |
+| `reauth` | `{ token: string, tenant_id?: string }` | Token refresh during active connection; same rules as `auth`. |
 | `subscribe` | `{ channel: string }` | Subscribe to a channel |
 | `unsubscribe` | `{ channel: string }` | Leave a channel |
 | `ping` | `{}` | Keepalive (server responds with `pong`) |
@@ -221,6 +231,14 @@ All server → client messages follow this envelope:
 ---
 
 ## Endpoints — Notifications
+
+### Delivery channels (REST `sendNotification` behavior)
+
+| Channel | Current behavior |
+|---------|------------------|
+| `in_app` | Persisted; rows appear in `GET /api/v1/notifications`. |
+| `email` | **Not delivered:** preference may list `email` in `delivered_channels` for API compatibility; the server does not send mail (stub log only) until an outbound provider is integrated. |
+| `slack` | **Not delivered:** same as `email`. |
 
 ### GET /api/v1/notifications
 

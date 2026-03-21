@@ -1,3 +1,4 @@
+import { syncPersonFromContactFields } from "./person-repository.js";
 function map(r) {
     const metadata = r.metadata && typeof r.metadata === "object" && !Array.isArray(r.metadata)
         ? r.metadata
@@ -6,6 +7,7 @@ function map(r) {
         id: r.id,
         parent_type: r.parent_type,
         parent_id: r.parent_id,
+        person_id: r.person_id ?? null,
         personnel_id: r.personnel_id,
         name: r.name,
         email: r.email,
@@ -34,14 +36,15 @@ export async function insertContact(client, p) {
        WHERE tenant_id = $1 AND parent_type = $2 AND parent_id = $3 AND deleted_at IS NULL`, [p.tenantId, p.parentType, p.parentId]);
     }
     const r = await client.query(`INSERT INTO contacts (
-      id, tenant_id, parent_type, parent_id, personnel_id,
+      id, tenant_id, parent_type, parent_id, person_id, personnel_id,
       name, email, phone, title, is_primary, metadata
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
     RETURNING *`, [
         p.id,
         p.tenantId,
         p.parentType,
         p.parentId,
+        p.personId,
         p.personnelId,
         p.name,
         p.email,
@@ -92,7 +95,13 @@ export async function updateContactRow(client, tenantId, id, patch, parentType, 
      WHERE tenant_id = $${whereStart} AND id = $${whereStart + 1}::uuid AND parent_type = $${whereStart + 2} AND parent_id = $${whereStart + 3}::uuid AND deleted_at IS NULL
      RETURNING *`;
     const r = await client.query(sql, vals);
-    return r.rows[0] ? map(r.rows[0]) : null;
+    const row = r.rows[0];
+    if (!row)
+        return null;
+    if (row.person_id) {
+        await syncPersonFromContactFields(client, tenantId, row.person_id, row.name, row.email, row.phone, row.personnel_id);
+    }
+    return map(row);
 }
 export async function softDeleteContact(client, tenantId, id, parentType, parentId) {
     const r = await client.query(`UPDATE contacts SET deleted_at = NOW(), updated_at = NOW()

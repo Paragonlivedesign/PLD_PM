@@ -25,5 +25,5 @@ export const updateVendorSchema = z.object({
 
 export const listVendorsQuerySchema = z.object({
   search: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
 });

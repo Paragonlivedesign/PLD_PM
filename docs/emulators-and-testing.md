@@ -40,7 +40,7 @@ If the API is unreachable, the shell falls back to Firebase/Firestore when emula
 
 ### PostgreSQL auth module (Wave 0)
 
-- Apply migration `database/migrations/005_auth_module.sql` (adds `tenants`, `users`, `roles`, refresh tokens, invitations, etc.). Seeded demo tenant slug `demo` and user `admin@demo.local` / password `password`.
+- Apply migration `database/migrations/005_auth_module.sql` (adds `tenants`, `users`, `roles`, refresh tokens, invitations, etc.). Seeded demo tenant slug `demo` and user `admin@demo.local`; dev password is standardized to **`pld`** by migration `018_dev_auth_fixtures.sql` (also applied by `npm run db:seed`).
 - **Bootstrap dev identities:** migration `009_bootstrap_dev_identity.sql` adds tenant slug `test` and user `testtenant@testtenant.com` (password `pld`). Run `npm run db:seed` to insert the **owner** user on the demo tenant; email from `OWNER_EMAIL` or `PLD_DEV_OWNER_EMAIL` in `.env` (default `cody@paragonlivedesign.com`), password `pld`. See `docs/bootstrap-dev-identity.md`.
 - **JWT signing:** Implementation uses `jose` in `backend/src/modules/auth/jwt.ts`. If **`JWT_PRIVATE_KEY`** and **`JWT_PUBLIC_KEY`** are set (PEM strings), access tokens are **RS256**. If those are omitted, set **`JWT_SECRET`** so login can issue **HS256** access tokens (typical local dev). See root **`.env.example`**.
 - **Redis (optional):** If **`REDIS_URL`** is set, `backend/src/modules/auth/cache.ts` stores resolved role **permissions** in Redis (short TTL) for multi-instance consistency; if Redis is down or unset, the API uses an in-process cache only.

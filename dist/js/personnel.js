@@ -221,7 +221,13 @@ function pldContextMenuPersonnelCard(domEvent, el) {
   const id = pldPersonnelIdFromAttr(raw);
   if (!id) return;
   window.pldShowContextMenu(domEvent.clientX, domEvent.clientY, [
-    { label: 'View / edit', action: function () { openPersonnelDetail(id); } },
+    {
+      label: 'View / edit',
+      action: function () {
+        if (typeof navigateToPersonnelProfile === 'function') navigateToPersonnelProfile(id);
+        else if (typeof openPersonnelDetail === 'function') openPersonnelDetail(id);
+      },
+    },
   ]);
 }
 
@@ -308,6 +314,52 @@ async function pldUploadPersonnelPhotoFile(file, personnelId) {
   }
   return String(r.body.data.id);
 }
+window.pldUploadPersonnelPhotoFile = pldUploadPersonnelPhotoFile;
+
+/** Full-page personnel profile: upload photo and PUT photo_document_id. */
+window.pldPersonnelProfilePhotoPick = async function (input) {
+  const id =
+    typeof selectedPersonnelId !== 'undefined' && selectedPersonnelId != null
+      ? String(selectedPersonnelId).trim()
+      : '';
+  const f = input && input.files && input.files[0];
+  if (!f || !id) return;
+  if (f.size > PLD_CREW_PHOTO_MAX_BYTES) {
+    if (typeof showToast === 'function') showToast('Photo must be 5 MB or smaller.', 'error');
+    input.value = '';
+    return;
+  }
+  if (!f.type.startsWith('image/')) {
+    if (typeof showToast === 'function') showToast('Please choose an image file.', 'error');
+    input.value = '';
+    return;
+  }
+  const row = window.__pldPersonnelProfileCache;
+  const ver = row && row.version != null ? Number(row.version) : 1;
+  const docId = await pldUploadPersonnelPhotoFile(f, id);
+  if (!docId) {
+    input.value = '';
+    return;
+  }
+  if (typeof window.pldApiFetch !== 'function') return;
+  const r = await window.pldApiFetch('/api/v1/personnel/' + encodeURIComponent(id), {
+    method: 'PUT',
+    body: JSON.stringify({ version: ver, photo_document_id: docId }),
+  });
+  if (!r.ok) {
+    const msg = r.body && r.body.errors && r.body.errors[0] && r.body.errors[0].message;
+    if (typeof showToast === 'function') showToast(msg || 'Could not attach photo', 'error');
+    input.value = '';
+    return;
+  }
+  window.__pldPersonnelProfileCache = r.body.data;
+  if (typeof showToast === 'function') showToast('Photo updated', 'success');
+  if (typeof fetchPersonnelFromApiIfConfigured === 'function') {
+    await fetchPersonnelFromApiIfConfigured();
+  }
+  if (typeof renderPage === 'function') renderPage('personnel-profile', { skipModuleDataFetch: true });
+  input.value = '';
+};
 
 function personnelSourceBannerHtml() {
   const box =
@@ -721,6 +773,30 @@ async function pldSavePersonnelDetailFromModal(personId) {
   await fetchPersonnelFromApiIfConfigured();
 }
 
+function pldOpenPldAddDepartmentPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  const items = [{ id: '', primary: '— None —', secondary: 'Optional' }];
+  if (typeof pickerItemsFromDepartments === 'function') {
+    items.push.apply(items, pickerItemsFromDepartments(DEPARTMENTS));
+  }
+  openPickerModal({
+    title: 'Department',
+    items: items,
+    onSelect: function (id) {
+      const h = document.getElementById('pldAddDepartment');
+      if (h) h.value = id;
+      const lbl = document.getElementById('pldAddDepartmentLabel');
+      if (lbl) {
+        if (!id) lbl.textContent = 'Select…';
+        else {
+          const d = DEPARTMENTS.find((x) => String(x.id) === String(id));
+          lbl.textContent = d ? d.name : 'Select…';
+        }
+      }
+    },
+  });
+}
+
 async function pldSubmitNewPersonnelFromModal() {
   if (typeof window.pldApiFetch !== 'function' || !pldApiBaseActive()) {
     if (typeof showToast === 'function') showToast('Set pld-api-base to create personnel.', 'warning');
@@ -764,6 +840,11 @@ async function pldSubmitNewPersonnelFromModal() {
   if (typeof showToast === 'function') showToast('Personnel record created', 'success');
   if (typeof closeModal === 'function') closeModal();
   await fetchPersonnelFromApiIfConfigured();
+  const newId = r.body && r.body.data && r.body.data.id != null ? String(r.body.data.id) : '';
+  if (newId && typeof navigateToPersonnelProfile === 'function') {
+    navigateToPersonnelProfile(newId);
+    return;
+  }
   if (typeof renderPage === 'function') renderPage('personnel');
 }
 
@@ -801,7 +882,7 @@ function openAddPersonnelModal() {
         <div class="form-group"><label class="form-label">Last Name *</label><input type="text" class="form-input" id="pldAddLastName" placeholder="Last name" autocomplete="family-name"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="form-group"><label class="form-label">Department</label><select class="form-select" id="pldAddDepartment"><option value="">Select…</option>${DEPARTMENTS.map((d) => `<option value="${String(d.id)}">${d.name}</option>`).join('')}</select></div>
+        <div class="form-group"><label class="form-label">Department</label><input type="hidden" id="pldAddDepartment" value=""><button type="button" class="pld-picker-trigger" onclick="pldOpenPldAddDepartmentPicker()"><span id="pldAddDepartmentLabel">Select…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button></div>
         <div class="form-group"><label class="form-label">Role / Title *</label><input type="text" class="form-input" id="pldAddRole" placeholder="Job title"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -1031,9 +1112,11 @@ function openAddPersonnelModal() {
       return;
     }
     const row = e.target.closest('[data-pld-personnel-id]');
-    if (row && typeof openPersonnelDetail === 'function') {
+    if (row) {
       e.preventDefault();
-      openPersonnelDetail(pldPersonnelIdFromAttr(row.getAttribute('data-pld-personnel-id')));
+      const pid = pldPersonnelIdFromAttr(row.getAttribute('data-pld-personnel-id'));
+      if (typeof navigateToPersonnelProfile === 'function') navigateToPersonnelProfile(pid);
+      else if (typeof openPersonnelDetail === 'function') openPersonnelDetail(pid);
     }
   }
 
@@ -1044,9 +1127,9 @@ function openAddPersonnelModal() {
     const row = e.target.closest('[data-pld-personnel-id]');
     if (!row) return;
     e.preventDefault();
-    if (typeof openPersonnelDetail === 'function') {
-      openPersonnelDetail(pldPersonnelIdFromAttr(row.getAttribute('data-pld-personnel-id')));
-    }
+    const pid = pldPersonnelIdFromAttr(row.getAttribute('data-pld-personnel-id'));
+    if (typeof navigateToPersonnelProfile === 'function') navigateToPersonnelProfile(pid);
+    else if (typeof openPersonnelDetail === 'function') openPersonnelDetail(pid);
   }
 
   document.addEventListener('click', onDocClick);

@@ -54,7 +54,7 @@ Express mounts from [`backend/src/app-factory.ts`](../backend/src/app-factory.ts
 | `/platform/*` | `platformRouter` |
 | `/invitations/accept` | `app.post` — **personnel** invite accept (`personnelService.acceptInvitation`, token in body); distinct from **`/auth/invitations/accept`** (different tables / response shape) |
 | `/events` (+ financial nested) | `eventsRouter` + `eventFinancialRouter` |
-| `/clients`, `/venues`, `/vendors`, `/me`, `/time`, `/pay-periods`, `/payroll`, `/travel`, `/search`, `/dashboard`, `/notifications` | `apiV1Ctx` router |
+| `/clients`, `/venues`, `/vendors`, `/tasks`, `/me`, `/time`, `/pay-periods`, `/payroll`, `/travel`, `/search`, `/dashboard`, `/notifications` | `apiV1Ctx` router ([`tasksRouter`](../backend/src/modules/tasks/routes.ts)) |
 | `/personnel`, `/departments`, `/invitations` | Separate `app.use` lines |
 | `/tenant` | `tenantRouter` |
 | `/custom-fields`, `/financials`, `/invoices`, `/reports/*` | `app.use` |
@@ -91,8 +91,8 @@ Run: `npm test` (workspace `backend` Vitest). Map UI/module → tests:
 
 | Location | Behavior |
 |----------|----------|
-| [`js/event-page.js`](../js/event-page.js) | Rider “+ Add Item” → toast “Add rider item — coming soon” |
-| [`js/dashboard.js`](../js/dashboard.js) | “Confirm availability” → toast “coming soon” |
+| [`js/event-page.js`](../js/event-page.js) | Riders tab: copy explains rider lines come from Documents/API (no fake “Add Item” button) |
+| [`js/dashboard.js`](../js/dashboard.js) | (removed) “Confirm availability” placeholder |
 | [`js/settings.js`](../js/settings.js) | Workforce “Run export stub” → `pldPayrollExportStub` / `GET /api/v1/payroll/export` wrapper in [`js/pld-crm-api.js`](../js/pld-crm-api.js) |
 | [`js/documents.js`](../js/documents.js) | Template placeholders `schedule_section`, `travel_section`, `financial_section` marked `stub` in catalog UI |
 

@@ -13,6 +13,10 @@
     const idRaw = c.id != null ? c.id : c.client_id != null ? c.client_id : '';
     const contactName = c.contact_name != null ? String(c.contact_name) : '';
     const contactEmail = c.contact_email != null ? String(c.contact_email) : '';
+    const md =
+      c.metadata && typeof c.metadata === 'object' && !Array.isArray(c.metadata)
+        ? /** @type {Record<string, unknown>} */ (c.metadata)
+        : {};
     return {
       id: idRaw !== '' && idRaw != null ? String(idRaw) : '',
       name: c.name,
@@ -22,18 +26,37 @@
       contact_email: contactEmail,
       phone: c.phone != null ? String(c.phone) : '',
       notes: c.notes != null ? String(c.notes) : '',
+      metadata: md,
+      updated_at: c.updated_at != null ? String(c.updated_at) : '',
+      created_at: c.created_at != null ? String(c.created_at) : '',
     };
   }
 
   function mapVenueApiToUi(v) {
+    const md =
+      v.metadata && typeof v.metadata === 'object' && !Array.isArray(v.metadata)
+        ? /** @type {Record<string, unknown>} */ (v.metadata)
+        : {};
     return {
       id: v.id,
       name: v.name,
       city: v.city || '',
+      address: v.address != null ? String(v.address) : '',
+      latitude: v.latitude != null && v.latitude !== '' ? Number(v.latitude) : null,
+      longitude: v.longitude != null && v.longitude !== '' ? Number(v.longitude) : null,
+      timezone: v.timezone != null ? String(v.timezone) : '',
+      notes: v.notes != null ? String(v.notes) : '',
+      metadata: md,
+      updated_at: v.updated_at != null ? String(v.updated_at) : '',
+      created_at: v.created_at != null ? String(v.created_at) : '',
     };
   }
 
   function mapVendorApiToUi(v) {
+    const md =
+      v.metadata && typeof v.metadata === 'object' && !Array.isArray(v.metadata)
+        ? /** @type {Record<string, unknown>} */ (v.metadata)
+        : {};
     return {
       id: v.id,
       name: v.name,
@@ -42,6 +65,9 @@
       phone: v.phone != null ? String(v.phone) : '',
       notes: v.notes != null ? String(v.notes) : '',
       linked_client_id: v.linked_client_id != null ? String(v.linked_client_id) : '',
+      metadata: md,
+      updated_at: v.updated_at != null ? String(v.updated_at) : '',
+      created_at: v.created_at != null ? String(v.created_at) : '',
     };
   }
 
@@ -215,6 +241,7 @@
           : p.day_rate_amount != null
             ? Number(p.day_rate_amount)
             : 0,
+      per_diem: p.per_diem != null && p.per_diem !== '' ? Number(p.per_diem) : null,
       avatar: color,
       initials: initials || '?',
       status: uiStatus,
@@ -546,6 +573,34 @@
   };
 
   /**
+   * After a new JWT/session (tenant switch, sign-in), reload PostgreSQL catalog into globals
+   * and refresh the travel list used by the Travel page.
+   */
+  global.pldRehydrateCatalogAfterTenantContextChange = async function pldRehydrateCatalogAfterTenantContextChange() {
+    if (typeof global.pldClearTenantScopedClientState === 'function') {
+      global.pldClearTenantScopedClientState();
+    }
+    try {
+      if (typeof global.pldTryBootstrapFromSql === 'function') {
+        const ok = await global.pldTryBootstrapFromSql();
+        if (ok && typeof global.dispatchEvent === 'function') {
+          global.dispatchEvent(new CustomEvent('pld-data-ready'));
+          global.dispatchEvent(new CustomEvent('pld-rest-events-synced'));
+        }
+      }
+    } catch (e) {
+      console.warn('[pld-hydrate] tenant context', e && e.message ? e.message : e);
+    }
+    if (typeof global.pldFetchGlobalTravelIfConfigured === 'function') {
+      try {
+        await global.pldFetchGlobalTravelIfConfigured();
+      } catch (e) {
+        void e;
+      }
+    }
+  };
+
+  /**
    * Probe GET /api/v1/events; on success replace CLIENTS, VENUES, EVENTS from API.
    * @returns {Promise<boolean>}
    */
@@ -653,6 +708,7 @@
       const pc = patch.primary_contact_id;
       body.primary_contact_id = pc === '' || pc === null ? null : pc;
     }
+    if (patch.status !== undefined) body.status = patch.status;
 
     const bodyKeys = Object.keys(body);
     if (bodyKeys.length === 1 && bodyKeys[0] === 'updated_at') {
@@ -876,22 +932,69 @@
     return ui;
   };
 
-  global.pldDeleteEventViaApi = async function (eventId) {
-    const res = await global.pldApiFetch('/api/v1/events/' + encodeURIComponent(eventId), {
+  /**
+   * @param {string} eventId
+   * @param {{ force?: boolean } | undefined} opts
+   * @returns {Promise<{ ok: true } | { ok: false, message?: string, status?: number, details?: unknown }>}
+   */
+  global.pldDeleteEventViaApi = async function (eventId, opts) {
+    const force = opts && opts.force === true;
+    const url =
+      '/api/v1/events/' + encodeURIComponent(eventId) + (force ? '?force=true' : '');
+    const res = await global.pldApiFetch(url, {
       method: 'DELETE',
     });
     if (!res.ok) {
-      const msg =
-        res.body && res.body.errors && res.body.errors[0] && res.body.errors[0].message;
-      if (typeof showToast === 'function') showToast(msg || 'Delete failed', 'error');
-      return false;
+      const err = res.body && res.body.errors && res.body.errors[0];
+      const msg = err && err.message;
+      const details = err && err.details;
+      if (res.status !== 409 && typeof showToast === 'function') {
+        showToast(msg || 'Delete failed', 'error');
+      }
+      return {
+        ok: false,
+        message: msg || 'Delete failed',
+        status: res.status,
+        details: details,
+      };
     }
     const idx = EVENTS.findIndex(function (e) {
       return e.id === eventId;
     });
     if (idx >= 0) EVENTS.splice(idx, 1);
     if (typeof global.updateSidebarNavCounts === 'function') global.updateSidebarNavCounts();
-    return true;
+    return { ok: true };
+  };
+
+  /**
+   * POST /api/v1/events/:id/restore — undelete soft-deleted event. Requires tenancy.settings.edit.
+   * @param {string} eventId
+   * @returns {Promise<ReturnType<typeof mapEventApiToUi> | null>}
+   */
+  global.pldRestoreEventViaApi = async function (eventId) {
+    const res = await global.pldApiFetch(
+      '/api/v1/events/' + encodeURIComponent(eventId) + '/restore',
+      { method: 'POST' },
+    );
+    if (!res.ok) {
+      const msg =
+        res.body && res.body.errors && res.body.errors[0] && res.body.errors[0].message;
+      if (typeof showToast === 'function') showToast(msg || 'Could not restore event', 'error');
+      return null;
+    }
+    const data = res.body && res.body.data;
+    if (!data) return null;
+    const ui = mapEventApiToUi(data);
+    const idx = EVENTS.findIndex(function (e) {
+      return e.id === ui.id;
+    });
+    if (idx >= 0) {
+      EVENTS[idx] = Object.assign({}, EVENTS[idx], ui);
+    } else {
+      EVENTS.push(ui);
+    }
+    if (typeof global.updateSidebarNavCounts === 'function') global.updateSidebarNavCounts();
+    return ui;
   };
 
   /**

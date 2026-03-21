@@ -10,6 +10,7 @@ import {
 import { routeParam } from "../../core/route-params.js";
 import type { ContactParentType } from "@pld/shared";
 import * as contactsRepo from "./repository.js";
+import { insertContactPerson } from "./person-repository.js";
 import * as clientsRepo from "../clients/repository.js";
 import * as venuesRepo from "../venues/repository.js";
 import * as vendorsRepo from "../vendors/repository.js";
@@ -90,22 +91,48 @@ export function createContactsNestedRouter(config: {
             return;
           }
         }
-        const row = await contactsRepo.insertContact(pool, {
-          id: uuidv7(),
-          tenantId: req.ctx.tenantId,
-          parentType: config.parentType,
-          parentId,
-          personnelId: body.personnel_id ?? null,
-          name: body.name,
-          email: body.email ?? null,
-          phone: body.phone ?? null,
-          title: body.title ?? null,
-          isPrimary: body.is_primary ?? false,
-          metadata: body.metadata ?? {},
-        });
-        res.status(201).json(
-          ok(await enrichContactWithPersonnel(req.ctx.tenantId, row)),
-        );
+        const contactId = uuidv7();
+        const personId = uuidv7();
+        const dbClient = await pool.connect();
+        try {
+          await dbClient.query("BEGIN");
+          await insertContactPerson(dbClient, {
+            id: personId,
+            tenantId: req.ctx.tenantId,
+            displayName: body.name,
+            email: body.email ?? null,
+            phone: body.phone ?? null,
+            personnelId: body.personnel_id ?? null,
+            metadata: {},
+          });
+          const row = await contactsRepo.insertContact(dbClient, {
+            id: contactId,
+            tenantId: req.ctx.tenantId,
+            parentType: config.parentType,
+            parentId,
+            personId,
+            personnelId: body.personnel_id ?? null,
+            name: body.name,
+            email: body.email ?? null,
+            phone: body.phone ?? null,
+            title: body.title ?? null,
+            isPrimary: body.is_primary ?? false,
+            metadata: body.metadata ?? {},
+          });
+          await dbClient.query("COMMIT");
+          res.status(201).json(
+            ok(await enrichContactWithPersonnel(req.ctx.tenantId, row)),
+          );
+        } catch (e) {
+          try {
+            await dbClient.query("ROLLBACK");
+          } catch {
+            /* ignore */
+          }
+          throw e;
+        } finally {
+          dbClient.release();
+        }
       } catch (e) {
         if (e instanceof ZodError) {
           res.status(400).json(singleError("validation", e.message, 400).body);

@@ -3,11 +3,24 @@
  * Run after: `docker compose up -d postgres` and `npm run db:migrate`
  * Usage: `npm run db:seed`
  *
+ * Operational demo data lives in `seed-demo-catalog.mjs` (and `seed-document-templates.mjs`)
+ * — shared with POST /api/v1/tenant/seed-demo. After seed, search index is rebuilt when
+ * `backend/dist` is built.
+ *
  * Dev bootstrap owner (see docs/bootstrap-dev-identity.md): set `OWNER_EMAIL` or
  * `PLD_DEV_OWNER_EMAIL` in `.env` (preferred for forks). Default matches the doc.
  * Password for seeded users is `pld` (bcrypt hash below — dev only).
+ *
+ * After catalog seed, applies `018_dev_auth_fixtures.sql` and `019_tasks_rbac_expand.sql`
+ * (dev login buffet + tasks RBAC — keep in sync with migrations).
  */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { seedDemoCatalog } from "./seed-demo-catalog.mjs";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const connectionString =
   process.env.DATABASE_URL ?? "postgresql://pld:pld@127.0.0.1:5432/pld_dev";
@@ -57,32 +70,33 @@ async function main() {
       ],
     );
 
-    for (let i = 1; i <= 3; i++) {
-      const name = `Seed Client ${i}`;
-      await pool.query(
-        `INSERT INTO clients (id, tenant_id, name, contact_name, metadata)
-         SELECT gen_random_uuid(), $1::uuid, $2::varchar, 'Seed'::varchar, '{}'::jsonb
-         WHERE NOT EXISTS (
-           SELECT 1 FROM clients c
-           WHERE c.tenant_id = $1::uuid AND c.name = $2::varchar AND c.deleted_at IS NULL
-         )`,
-        [DEMO_TENANT, name],
-      );
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await seedDemoCatalog(client, DEMO_TENANT);
+      await client.query("COMMIT");
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw e;
+    } finally {
+      client.release();
     }
 
-    for (const [vn, city] of [
-      ["Seed Venue A", "Austin"],
-      ["Seed Venue B", "Dallas"],
-    ]) {
-      await pool.query(
-        `INSERT INTO venues (id, tenant_id, name, city, address, metadata)
-         SELECT gen_random_uuid(), $1::uuid, $2::varchar, $3::varchar, '1 Demo Road'::varchar, '{}'::jsonb
-         WHERE NOT EXISTS (
-           SELECT 1 FROM venues v
-           WHERE v.tenant_id = $1::uuid AND v.name = $2::varchar AND v.deleted_at IS NULL
-         )`,
-        [DEMO_TENANT, vn, city],
-      );
+    try {
+      const { syncSearchIndexForTenant } = await import("../backend/dist/modules/search/service.js");
+      await syncSearchIndexForTenant(pool, DEMO_TENANT);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("[db:seed] Search index sync skipped:", msg);
+    }
+
+    const m018 = path.join(__dirname, "../database/migrations/018_dev_auth_fixtures.sql");
+    if (fs.existsSync(m018)) {
+      await pool.query(fs.readFileSync(m018, "utf8"));
+    }
+    const m019 = path.join(__dirname, "../database/migrations/019_tasks_rbac_expand.sql");
+    if (fs.existsSync(m019)) {
+      await pool.query(fs.readFileSync(m019, "utf8"));
     }
 
     console.log("Postgres seed complete (idempotent).");

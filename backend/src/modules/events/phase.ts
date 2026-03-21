@@ -13,6 +13,8 @@ export function isValidPhaseTransition(
   const fi = order.get(from);
   const ti = order.get(to);
   if (fi === undefined || ti === undefined) return false;
-  /** Single forward step only (no jump back to planning from terminal phases). */
+  /** Contract: any phase may reset to `planning` (PUT /events/:id/phase). */
+  if (to === "planning") return true;
+  /** Single forward step only (no skipping). */
   return ti === fi + 1;
 }

@@ -21,6 +21,35 @@ function pldVendorsUseRestApi() {
   return typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST;
 }
 
+window.pldOpenVendorLinkedClientPicker = function pldOpenVendorLinkedClientPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  const items = [{ id: '', primary: '— None —', secondary: '' }];
+  if (typeof pickerItemsFromClients === 'function' && typeof CLIENTS !== 'undefined' && Array.isArray(CLIENTS)) {
+    items.push.apply(items, pickerItemsFromClients(CLIENTS));
+  }
+  openPickerModal({
+    title: 'Linked client',
+    items: items,
+    onSelect: function (pickedId) {
+      const h = document.getElementById('pldVendorFormLinkedClient');
+      if (h) h.value = pickedId;
+      const lbl = document.getElementById('pldVendorFormLinkedClientLabel');
+      if (lbl) {
+        if (!pickedId) lbl.textContent = '— None —';
+        else {
+          const c =
+            typeof CLIENTS !== 'undefined' && Array.isArray(CLIENTS)
+              ? CLIENTS.find(function (x) {
+                  return String(x.id) === String(pickedId);
+                })
+              : null;
+          lbl.textContent = c ? c.name : '—';
+        }
+      }
+    },
+  });
+};
+
 window.pldRefreshVendorsFromApiIfConfigured = async function pldRefreshVendorsFromApiIfConfigured() {
   if (typeof pldListVendorsFromApi !== 'function' || typeof VENDORS === 'undefined') return;
   const term = String(window.__pldVendorsListSearch || '').trim();
@@ -94,12 +123,15 @@ window.pldOpenVendorEditorModal = async function pldOpenVendorEditorModal(vendor
   const ph0 = existing && existing.phone != null ? String(existing.phone) : '';
   const no0 = existing && existing.notes != null ? String(existing.notes) : '';
   const lid = existing && existing.linked_client_id != null ? String(existing.linked_client_id) : '';
-  const clientOpts = (typeof CLIENTS !== 'undefined' && Array.isArray(CLIENTS) ? CLIENTS : [])
-    .map(function (c) {
-      const sel = lid === String(c.id) ? ' selected' : '';
-      return `<option value="${pldVendorsHtmlEsc(c.id)}"${sel}>${pldVendorsHtmlEsc(c.name)}</option>`;
-    })
-    .join('');
+  const linkedClientLabel =
+    lid && typeof CLIENTS !== 'undefined' && Array.isArray(CLIENTS)
+      ? (function () {
+          const lc = CLIENTS.find(function (c) {
+            return String(c.id) === lid;
+          });
+          return lc ? lc.name : '—';
+        })()
+      : '— None —';
 
   const body = `
     <input type="hidden" id="pldVendorFormId" value="${pldVendorsHtmlEsc(id)}">
@@ -114,10 +146,8 @@ window.pldOpenVendorEditorModal = async function pldOpenVendorEditorModal(vendor
     <div class="form-group"><label class="form-label">Phone</label>
       <input type="text" class="form-input" id="pldVendorFormPhone" value="${pldVendorsHtmlEsc(ph0)}"></div>
     <div class="form-group"><label class="form-label">Linked client</label>
-      <select class="form-select" id="pldVendorFormLinkedClient">
-        <option value="">— None —</option>
-        ${clientOpts}
-      </select>
+      <input type="hidden" id="pldVendorFormLinkedClient" value="${pldVendorsHtmlEsc(lid)}">
+      <button type="button" class="pld-picker-trigger" onclick="void pldOpenVendorLinkedClientPicker()"><span id="pldVendorFormLinkedClientLabel">${pldVendorsHtmlEsc(linkedClientLabel)}</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button>
       <p class="form-hint">Optional — same org as an existing client record.</p></div>
     <div class="form-group"><label class="form-label">Notes</label>
       <textarea class="form-textarea" id="pldVendorFormNotes" rows="3">${pldVendorsHtmlEsc(no0)}</textarea></div>
@@ -229,6 +259,12 @@ function pldContextMenuVendorRow(domEvent, vendorId) {
     return String(x.id) === id;
   });
   const items = [];
+  items.push({
+    label: 'Open profile',
+    action: function () {
+      if (typeof window.navigateToVendor === 'function') window.navigateToVendor(id);
+    },
+  });
   const rest = typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST;
   if (rest) {
     items.push({
@@ -307,7 +343,7 @@ function renderVendors() {
                 return `<option value="${pldVendorsHtmlEsc(c.id)}"${sel}>${pldVendorsHtmlEsc(c.name)}</option>`;
               })
               .join('');
-            return `<tr oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuVendorRow(event,${pldVendorsJsArgForOnclick(id)});">
+            return `<tr data-vendor-id="${pldVendorsHtmlEsc(id)}" style="cursor:pointer;" onclick="pldNavigateVendorListRow(event, this)" oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuVendorRow(event,${pldVendorsJsArgForOnclick(id)});">
             <td><strong>${pldVendorsHtmlEsc(v.name)}</strong>
               <div style="font-size:11px;color:var(--text-tertiary);">${pldVendorsHtmlEsc(v.contact_email || '')}</div></td>
             <td>

@@ -649,11 +649,18 @@ describe("Checkpoint 1 — API (PLD_PM)", () => {
       expect(clone.body.data.id).not.toBe(id);
       expect(String(clone.body.data.name)).toBe(cloneName);
 
-      const phaseBad = await request(app)
+      const samePhaseBad = await request(app)
         .put(`/api/v1/events/${id}/phase`)
         .set(ctxHeaders(tenantId, userId))
-        .send({ phase: "planning", notes: "nope" });
-      expect(phaseBad.status).toBeGreaterThanOrEqual(400);
+        .send({ phase: "closed", notes: "nope" });
+      expect(samePhaseBad.status).toBeGreaterThanOrEqual(400);
+
+      const resetPlan = await request(app)
+        .put(`/api/v1/events/${id}/phase`)
+        .set(ctxHeaders(tenantId, userId))
+        .send({ phase: "planning", notes: "reset" });
+      expect(resetPlan.status).toBe(200);
+      expect(resetPlan.body.data.phase).toBe("planning");
     });
   });
 });

@@ -41,8 +41,8 @@ async function resolveChannelStates(pool, tenantId, userId, notificationType) {
     return base;
 }
 /**
- * Persist in-app row when in_app pref enabled; log email/slack stubs when enabled.
- * Matches internal contract sendNotification shape (delivered_channels).
+ * Persist in-app row when in_app pref enabled. Email/slack are reported in `delivered_channels`
+ * when the preference is on but are **not** sent to external providers (see collaboration.contract.md).
  */
 export async function sendNotification(pool, input) {
     const { tenantId, userId, notificationType, title, body, payload = {} } = input;

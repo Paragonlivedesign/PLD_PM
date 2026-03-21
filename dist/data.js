@@ -22,6 +22,25 @@ const PHASE_LABELS = {
   closed: 'Closed',
 };
 
+/** Event lifecycle status (API `status`); see contracts/events.contract.md */
+const STATUS_LABELS = {
+  draft: 'Draft',
+  bidding: 'Bidding',
+  confirmed: 'Confirmed',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+const EVENT_STATUSES_UI = [
+  'draft',
+  'bidding',
+  'confirmed',
+  'in_progress',
+  'completed',
+  'cancelled',
+];
+
 /** Phases treated as finished for dashboards / filters (global for other scripts) */
 function isTerminalEventPhase(phase) {
   return phase === 'closed';

@@ -1,11 +1,13 @@
 import type { Pool, PoolClient } from "pg";
 import type { ContactParentType, ContactResponse } from "@pld/shared";
+import { syncPersonFromContactFields } from "./person-repository.js";
 
 type Row = {
   id: string;
   tenant_id: string;
   parent_type: string;
   parent_id: string;
+  person_id: string | null;
   personnel_id: string | null;
   name: string;
   email: string | null;
@@ -27,6 +29,7 @@ function map(r: Row): ContactResponse {
     id: r.id,
     parent_type: r.parent_type as ContactParentType,
     parent_id: r.parent_id,
+    person_id: r.person_id ?? null,
     personnel_id: r.personnel_id,
     name: r.name,
     email: r.email,
@@ -74,6 +77,7 @@ export async function insertContact(
     tenantId: string;
     parentType: ContactParentType;
     parentId: string;
+    personId: string;
     personnelId: string | null;
     name: string;
     email: string | null;
@@ -92,15 +96,16 @@ export async function insertContact(
   }
   const r = await client.query<Row>(
     `INSERT INTO contacts (
-      id, tenant_id, parent_type, parent_id, personnel_id,
+      id, tenant_id, parent_type, parent_id, person_id, personnel_id,
       name, email, phone, title, is_primary, metadata
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
     RETURNING *`,
     [
       p.id,
       p.tenantId,
       p.parentType,
       p.parentId,
+      p.personId,
       p.personnelId,
       p.name,
       p.email,
@@ -165,7 +170,20 @@ export async function updateContactRow(
      WHERE tenant_id = $${whereStart} AND id = $${whereStart + 1}::uuid AND parent_type = $${whereStart + 2} AND parent_id = $${whereStart + 3}::uuid AND deleted_at IS NULL
      RETURNING *`;
   const r = await client.query<Row>(sql, vals);
-  return r.rows[0] ? map(r.rows[0]) : null;
+  const row = r.rows[0];
+  if (!row) return null;
+  if (row.person_id) {
+    await syncPersonFromContactFields(
+      client,
+      tenantId,
+      row.person_id,
+      row.name,
+      row.email,
+      row.phone,
+      row.personnel_id,
+    );
+  }
+  return map(row);
 }
 
 export async function softDeleteContact(

@@ -181,19 +181,96 @@ function renderFinancialReports() {
   `;
 }
 
+function pldManualCostEventName(eventId) {
+  if (!eventId) return '—';
+  const e =
+    typeof EVENTS !== 'undefined' && Array.isArray(EVENTS)
+      ? EVENTS.find((x) => String(x.id) === String(eventId))
+      : null;
+  return e && e.name ? String(e.name) : '—';
+}
+
+function pldManualCostVendorName(vendorId) {
+  if (!vendorId) return '—';
+  const v =
+    typeof VENDORS !== 'undefined' && Array.isArray(VENDORS)
+      ? VENDORS.find((x) => String(x.id) === String(vendorId))
+      : null;
+  return v && v.name ? String(v.name) : '—';
+}
+
+window.pldOpenManualCostEventPicker = function pldOpenManualCostEventPicker() {
+  if (typeof openPickerModal !== 'function' || typeof pickerItemsFromEvents !== 'function') return;
+  let items = [{ id: '', primary: '— None —', secondary: '' }];
+  if (typeof EVENTS !== 'undefined' && Array.isArray(EVENTS)) {
+    items = items.concat(pickerItemsFromEvents(EVENTS, { excludeTerminal: true }));
+  }
+  openPickerModal({
+    title: 'Event',
+    items,
+    pickerFilter: 'events',
+    onSelect: function (pickedId) {
+      const h = document.getElementById('pldManualCostEvent');
+      if (h) h.value = pickedId || '';
+      const lbl = document.getElementById('pldManualCostEventLabel');
+      if (lbl) lbl.textContent = pickedId ? pldManualCostEventName(pickedId) : '— None —';
+    },
+  });
+};
+
+window.pldOpenManualCostVendorPicker = async function pldOpenManualCostVendorPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  if (typeof window.pldRefreshVendorsFromApiIfConfigured === 'function') {
+    try {
+      await window.pldRefreshVendorsFromApiIfConfigured();
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  let items = [{ id: '', primary: '— None —', secondary: '' }];
+  if (typeof pickerItemsFromVendors === 'function' && typeof VENDORS !== 'undefined' && Array.isArray(VENDORS)) {
+    items = items.concat(pickerItemsFromVendors(VENDORS));
+  }
+  openPickerModal({
+    title: 'Vendor / payee',
+    items,
+    searchPlaceholder: 'Search vendors…',
+    onSelect: function (pickedId) {
+      const h = document.getElementById('pldManualCostVendor');
+      if (h) h.value = pickedId || '';
+      const lbl = document.getElementById('pldManualCostVendorLabel');
+      if (lbl) lbl.textContent = pickedId ? pldManualCostVendorName(pickedId) : '— None —';
+    },
+  });
+};
+
 function openManualCostModal() {
   const body = `
-    <div class="form-group"><label class="form-label">Event</label><select class="form-select"><option value="">Select…</option>${EVENTS.filter(e => !isTerminalEventPhase(e.phase)).map(e => `<option>${e.name}</option>`).join('')}</select></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-      <div class="form-group"><label class="form-label">Category</label><select class="form-select">${FINANCIAL_CATEGORIES.map(c => `<option>${c.label}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">Amount ($)</label><input type="number" class="form-input" placeholder="0"></div>
+    <div class="form-group">
+      <label class="form-label">Event</label>
+      <input type="hidden" id="pldManualCostEvent" value="">
+      <button type="button" class="pld-picker-trigger" onclick="void pldOpenManualCostEventPicker()"><span id="pldManualCostEventLabel">— None —</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button>
+      <p class="form-hint" style="margin-top:4px;font-size:11px;">Searchable list — date/phase filters in the picker.</p>
     </div>
-    <div class="form-group"><label class="form-label">Description</label><input type="text" class="form-input" placeholder="What is this cost for?"></div>
-    <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input"></div>
-    <div class="form-group"><label class="form-label">Vendor / Payee</label><input type="text" class="form-input" placeholder="Optional"></div>
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" placeholder="PO number, invoice reference…"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="pldManualCostCategory">${FINANCIAL_CATEGORIES.map((c) => `<option value="${c.key}">${c.label}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Amount ($)</label><input type="number" class="form-input" id="pldManualCostAmount" placeholder="0" step="0.01" min="0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label><input type="text" class="form-input" id="pldManualCostDesc" placeholder="What is this cost for?"></div>
+    <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="pldManualCostDate"></div>
+    <div class="form-group">
+      <label class="form-label">Vendor / Payee</label>
+      <input type="hidden" id="pldManualCostVendor" value="">
+      <button type="button" class="pld-picker-trigger" onclick="void pldOpenManualCostVendorPicker()"><span id="pldManualCostVendorLabel">— None —</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button>
+      <p class="form-hint" style="margin-top:4px;font-size:11px;">From Vendors directory (API). Optional.</p>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="pldManualCostNotes" placeholder="PO number, invoice reference…"></textarea></div>
   `;
-  openModal('Add Manual Cost Entry', body, `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="showToast('Cost entry added!','success');closeModal();">Add Entry</button>`);
+  openModal(
+    'Add Manual Cost Entry',
+    body,
+    `<button class="btn btn-secondary" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="showToast('Cost entry added!','success');closeModal();">Add Entry</button>`,
+  );
 }
 
 // ============================================

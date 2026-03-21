@@ -2,6 +2,21 @@
 (function (global) {
   global.__pldTenant = null;
 
+  const DEFAULT_SHELL_LOGO =
+    typeof global.PLD_DEFAULT_APP_LOGO === "string" && global.PLD_DEFAULT_APP_LOGO.trim()
+      ? global.PLD_DEFAULT_APP_LOGO.trim()
+      : "assets/branding/default-logo.png?v=4";
+
+  function applyShellLogo(tenant) {
+    const img = document.getElementById("pldShellLogo");
+    if (!img || img.tagName !== "IMG") return;
+    let url = "";
+    if (tenant && tenant.settings && tenant.settings.branding && tenant.settings.branding.logo_url) {
+      url = String(tenant.settings.branding.logo_url).trim();
+    }
+    img.src = url || DEFAULT_SHELL_LOGO;
+  }
+
   function tenantInitials(name) {
     const s = String(name || "").trim();
     if (!s) return "—";
@@ -18,9 +33,11 @@
     const r = await global.pldApiFetch("/api/v1/tenant", { method: "GET" });
     if (!r.ok || !r.body || !r.body.data) {
       global.__pldTenant = null;
+      applyShellLogo(null);
       return;
     }
     global.__pldTenant = r.body.data;
+    applyShellLogo(r.body.data);
     const name = String(r.body.data.name || "").trim() || "Tenant";
     const tn = document.querySelector(".tenant-name");
     const ta = document.querySelector(".tenant-avatar");
@@ -36,7 +53,7 @@
       tr.textContent = role ? role.charAt(0).toUpperCase() + role.slice(1) : "—";
     }
     try {
-      document.title = name + " — PLD_PM";
+      document.title = name + " — PM";
     } catch (_) {}
   };
 

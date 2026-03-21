@@ -3,6 +3,28 @@
    Depends on: state.js (none for theme itself)
    ============================================ */
 
+/** Base palette when Theme Mode is Custom (editable in Settings → Appearance). */
+const CUSTOM_PALETTE_DEFAULTS = {
+  bgPrimary: '#0f1117',
+  bgSecondary: '#161922',
+  bgTertiary: '#1c2030',
+  bgElevated: '#222639',
+  textPrimary: '#e8eaf0',
+  textSecondary: '#9ba1b4',
+  textTertiary: '#6b7280',
+};
+
+/** Migrate old Solarized preset into Custom with equivalent colors. */
+const SOLARIZED_TO_CUSTOM_PALETTE = {
+  bgPrimary: '#002b36',
+  bgSecondary: '#073642',
+  bgTertiary: '#0a4050',
+  bgElevated: '#0a4050',
+  textPrimary: '#fdf6e3',
+  textSecondary: '#93a1a1',
+  textTertiary: '#657b83',
+};
+
 const THEME_DEFAULTS = {
   mode: 'dark',
   accent: '#3b82f6',
@@ -11,6 +33,7 @@ const THEME_DEFAULTS = {
   density: 'comfortable',
   sidebarWidth: 260,
   fontFamily: 'Inter',
+  customPalette: { ...CUSTOM_PALETTE_DEFAULTS },
 };
 
 const ACCENT_PRESETS = [
@@ -30,12 +53,27 @@ const ACCENT_PRESETS = [
 
 const FONT_OPTIONS = ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'monospace'];
 
-let themeSettings = { ...THEME_DEFAULTS };
+let themeSettings = { ...THEME_DEFAULTS, customPalette: { ...THEME_DEFAULTS.customPalette } };
 
 function loadTheme() {
   try {
     const saved = localStorage.getItem('pm_theme');
-    if (saved) themeSettings = { ...THEME_DEFAULTS, ...JSON.parse(saved) };
+    if (saved) {
+      const p = JSON.parse(saved);
+      themeSettings = {
+        ...THEME_DEFAULTS,
+        ...p,
+        customPalette: { ...THEME_DEFAULTS.customPalette, ...(p.customPalette || {}) },
+      };
+      if (themeSettings.mode === 'solarized') {
+        themeSettings.mode = 'custom';
+        themeSettings.customPalette = {
+          ...themeSettings.customPalette,
+          ...SOLARIZED_TO_CUSTOM_PALETTE,
+        };
+        saveTheme();
+      }
+    }
   } catch (e) {}
   applyTheme();
 }
@@ -45,13 +83,17 @@ function saveTheme() {
 }
 
 function setTheme(key, value) {
-  themeSettings[key] = value;
+  if (key === 'customPalette' && value && typeof value === 'object' && !Array.isArray(value)) {
+    themeSettings.customPalette = { ...themeSettings.customPalette, ...value };
+  } else {
+    themeSettings[key] = value;
+  }
   saveTheme();
   applyTheme();
 }
 
 function resetTheme() {
-  themeSettings = { ...THEME_DEFAULTS };
+  themeSettings = { ...THEME_DEFAULTS, customPalette: { ...THEME_DEFAULTS.customPalette } };
   saveTheme();
   applyTheme();
 }
@@ -126,22 +168,26 @@ function applyTheme() {
     root.style.setProperty('--shadow-sm', '0 1px 2px rgba(0,0,0,0.5)');
     root.style.setProperty('--shadow-md', '0 4px 12px rgba(0,0,0,0.6)');
     root.style.setProperty('--shadow-lg', '0 8px 32px rgba(0,0,0,0.7)');
-  } else if (s.mode === 'solarized') {
-    root.style.setProperty('--bg-primary', '#002b36');
-    root.style.setProperty('--bg-secondary', '#073642');
-    root.style.setProperty('--bg-tertiary', '#0a4050');
-    root.style.setProperty('--bg-elevated', '#0a4050');
-    root.style.setProperty('--bg-hover', '#124d5e');
-    root.style.setProperty('--bg-active', '#1a5a6d');
-    root.style.setProperty('--border-subtle', 'rgba(131,148,150,0.1)');
-    root.style.setProperty('--border-default', 'rgba(131,148,150,0.2)');
-    root.style.setProperty('--border-strong', 'rgba(131,148,150,0.3)');
-    root.style.setProperty('--text-primary', '#fdf6e3');
-    root.style.setProperty('--text-secondary', '#93a1a1');
-    root.style.setProperty('--text-tertiary', '#657b83');
-    root.style.setProperty('--shadow-sm', '0 1px 2px rgba(0,0,0,0.4)');
-    root.style.setProperty('--shadow-md', '0 4px 12px rgba(0,0,0,0.5)');
-    root.style.setProperty('--shadow-lg', '0 8px 32px rgba(0,0,0,0.6)');
+  } else if (s.mode === 'custom') {
+    const p = { ...CUSTOM_PALETTE_DEFAULTS, ...(s.customPalette || {}) };
+    root.style.setProperty('--bg-primary', p.bgPrimary);
+    root.style.setProperty('--bg-secondary', p.bgSecondary);
+    root.style.setProperty('--bg-tertiary', p.bgTertiary);
+    root.style.setProperty('--bg-elevated', p.bgElevated);
+    root.style.setProperty('--bg-hover', adjustColor(p.bgTertiary, 18));
+    root.style.setProperty('--bg-active', adjustColor(p.bgTertiary, 36));
+    const { r: br, g: bg, b: bb } = hexToRgb(p.bgPrimary);
+    const lum = br * 0.299 + bg * 0.587 + bb * 0.114;
+    const bmix = lum < 140 ? '255,255,255' : '0,0,0';
+    root.style.setProperty('--border-subtle', `rgba(${bmix},0.06)`);
+    root.style.setProperty('--border-default', `rgba(${bmix},0.1)`);
+    root.style.setProperty('--border-strong', `rgba(${bmix},0.15)`);
+    root.style.setProperty('--text-primary', p.textPrimary);
+    root.style.setProperty('--text-secondary', p.textSecondary);
+    root.style.setProperty('--text-tertiary', p.textTertiary);
+    root.style.setProperty('--shadow-sm', '0 1px 2px rgba(0,0,0,0.3)');
+    root.style.setProperty('--shadow-md', '0 4px 12px rgba(0,0,0,0.4)');
+    root.style.setProperty('--shadow-lg', '0 8px 32px rgba(0,0,0,0.5)');
   }
 
   // Accent color

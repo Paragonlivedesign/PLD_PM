@@ -51,7 +51,7 @@ All responses follow the standard envelope:
 |---|---|---|---|
 | file | binary | yes | File to upload |
 | event_id | UUID | no | Associated event |
-| entity_type | string | no | Associated entity type (e.g., "personnel", "client", "venue") |
+| entity_type | string | no | Associated entity type (e.g., `personnel`, `client`, `vendor`, `venue`, `contact`) |
 | entity_id | UUID | no | Associated entity ID |
 | category | enum: contract, rider, invoice, production_schedule, stage_plot, tech_spec, photo, other | yes | Document category |
 | name | string | no | Display name (defaults to filename) |

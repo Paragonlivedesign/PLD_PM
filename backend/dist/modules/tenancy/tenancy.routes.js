@@ -5,6 +5,7 @@ import { HttpError } from "../../core/http-error.js";
 import { asyncHandler, requestContextMiddleware, requireAnyPermission, } from "../../core/middleware.js";
 import * as svc from "./tenancy.service.js";
 import { resetTenantOperationalData } from "./tenant-reset.service.js";
+import { seedTenantDemoOperationalData } from "./tenant-seed-demo.service.js";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function paramId(p) {
     if (Array.isArray(p))
@@ -32,6 +33,16 @@ tenantRouter.post("/reset-data", requireAnyPermission("tenancy.settings.edit"), 
     const ctx = getContext();
     const out = await resetTenantOperationalData(ctx.tenantId);
     res.status(200).json(ok({ reset: true, tenant_id: ctx.tenantId, deleted_steps: out.deleted_tables }));
+}));
+/** Idempotent demo clients + venues for the current tenant (dev / opt-in production). */
+tenantRouter.post("/seed-demo", requireAnyPermission("tenancy.settings.edit"), asyncHandler(async (req, res) => {
+    const body = req.body;
+    if (String(body?.confirm ?? "") !== "SEED") {
+        throw new HttpError(400, "VALIDATION", 'Request body must include "confirm": "SEED"', "confirm");
+    }
+    const ctx = getContext();
+    const out = await seedTenantDemoOperationalData(ctx.tenantId);
+    res.status(200).json(ok({ ...out, tenant_id: ctx.tenantId }));
 }));
 departmentsRouter.get("/", asyncHandler(async (req, res) => {
     const out = await svc.listDepartmentsApi(req.query);

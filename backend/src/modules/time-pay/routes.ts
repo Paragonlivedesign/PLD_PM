@@ -186,6 +186,7 @@ payPeriodsRouter.get(
       ok([], {
         pay_period_id: periodId,
         statement_count: n,
+        stub: true,
         note: "Pay statement rows ship in a later phase; this endpoint is a shell.",
       }),
     );
@@ -197,12 +198,15 @@ payrollRouter.get(
   requirePermission("payroll:export"),
   asyncHandler(async (_req, res) => {
     res.json(
-      ok({
-        format: "adp_csv_v0",
-        message:
-          "Export-first payroll: wire column mapping and storage in a later phase.",
-        rows: [] as unknown[],
-      }),
+      ok(
+        {
+          format: "adp_csv_v0",
+          message:
+            "Export-first payroll: wire column mapping and storage in a later phase.",
+          rows: [] as unknown[],
+        },
+        { stub: true },
+      ),
     );
   }),
 );

@@ -22,6 +22,16 @@ function pldVenuesUseRestApi() {
   return typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST;
 }
 
+function pldVenuesCanCreate() {
+  return typeof window.pldHasApiPermission === 'function' && window.pldHasApiPermission('venues:create');
+}
+function pldVenuesCanUpdate() {
+  return typeof window.pldHasApiPermission === 'function' && window.pldHasApiPermission('venues:update');
+}
+function pldVenuesCanDelete() {
+  return typeof window.pldHasApiPermission === 'function' && window.pldHasApiPermission('venues:delete');
+}
+
 /**
  * Refill VENUES from GET /api/v1/venues (optional search).
  * @param {string} [search]
@@ -54,10 +64,22 @@ window.pldFetchVenuesFromApiIfConfigured = async function pldFetchVenuesFromApiI
       const rows = (res.body && res.body.data) || [];
       for (let i = 0; i < rows.length; i++) {
         const v = rows[i];
+        const md =
+          v.metadata && typeof v.metadata === 'object' && !Array.isArray(v.metadata)
+            ? /** @type {Record<string, unknown>} */ (v.metadata)
+            : {};
         all.push({
           id: v.id,
           name: v.name,
           city: v.city || '',
+          address: v.address != null ? String(v.address) : '',
+          latitude: v.latitude != null && v.latitude !== '' ? Number(v.latitude) : null,
+          longitude: v.longitude != null && v.longitude !== '' ? Number(v.longitude) : null,
+          timezone: v.timezone != null ? String(v.timezone) : '',
+          notes: v.notes != null ? String(v.notes) : '',
+          metadata: md,
+          updated_at: v.updated_at != null ? String(v.updated_at) : '',
+          created_at: v.created_at != null ? String(v.created_at) : '',
         });
       }
       const meta = res.body && res.body.meta;
@@ -97,6 +119,14 @@ function onVenuesSearchInput(value) {
 
 window.pldOpenVenueEditorModal = async function pldOpenVenueEditorModal(venueId) {
   const id = venueId ? String(venueId) : '';
+  if (!id && !pldVenuesCanCreate()) {
+    if (typeof showToast === 'function') showToast('No permission to create venues (venues:create).', 'error');
+    return;
+  }
+  if (id && !pldVenuesCanUpdate()) {
+    if (typeof showToast === 'function') showToast('No permission to edit venues (venues:update).', 'error');
+    return;
+  }
   let existing =
     id && typeof VENUES !== 'undefined' && Array.isArray(VENUES)
       ? VENUES.find(function (x) {
@@ -266,7 +296,13 @@ async function pldRunDeleteVenue(id) {
   }
   if (!res.ok) {
     const msg = res.body && res.body.errors && res.body.errors[0] && res.body.errors[0].message;
-    if (typeof showToast === 'function') showToast(msg || 'Delete failed', 'error');
+    if (typeof showToast === 'function') {
+      if (res.status === 403) {
+        showToast(msg || 'No permission to delete venues (venues:delete).', 'error');
+      } else {
+        showToast(msg || 'Delete failed', 'error');
+      }
+    }
     return;
   }
   if (typeof showToast === 'function') showToast('Venue removed', 'success');
@@ -283,6 +319,12 @@ function pldContextMenuVenueRow(domEvent, venueId) {
     return String(x.id) === id;
   });
   const items = [];
+  items.push({
+    label: 'Open profile',
+    action: function () {
+      if (typeof window.navigateToVenue === 'function') window.navigateToVenue(id);
+    },
+  });
   const rest = typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST;
   if (rest) {
     items.push({
@@ -309,7 +351,7 @@ function pldContextMenuVenueRow(domEvent, venueId) {
       },
     });
   }
-  if (rest) {
+  if (rest && pldVenuesCanDelete()) {
     items.push({
       label: 'Delete',
       danger: true,
@@ -349,15 +391,21 @@ function renderVenues() {
           .map(function (v) {
             const id = String(v.id);
             const safeId = id.replace(/'/g, "\\'");
-            return `<tr oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuVenueRow(event,'${safeId}');">
+            return `<tr data-venue-id="${pldVenuesHtmlEsc(id)}" style="cursor:pointer;" onclick="pldNavigateVenueListRow(event, this)" oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuVenueRow(event,'${safeId}');">
             <td><strong>${pldVenuesHtmlEsc(v.name)}</strong></td>
             <td style="color:var(--text-tertiary);">${pldVenuesHtmlEsc(v.city || '')}</td>
             <td class="pld-directory-actions">
               ${
                 rest
-                  ? `<button type="button" class="btn btn-ghost btn-sm" onclick="void pldOpenVenueContactsModal(${pldVenuesJsArgForOnclick(id)})">Contacts</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="void pldOpenVenueEditorModal(${pldVenuesJsArgForOnclick(id)})">Edit</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="pldConfirmDeleteVenue(${pldVenuesJsArgForOnclick(id)})">Delete</button>`
+                  ? `${`<button type="button" class="btn btn-ghost btn-sm" onclick="void pldOpenVenueContactsModal(${pldVenuesJsArgForOnclick(id)})">Contacts</button>`}${
+                      pldVenuesCanUpdate()
+                        ? `<button type="button" class="btn btn-ghost btn-sm" onclick="void pldOpenVenueEditorModal(${pldVenuesJsArgForOnclick(id)})">Edit</button>`
+                        : ''
+                    }${
+                      pldVenuesCanDelete()
+                        ? `<button type="button" class="btn btn-ghost btn-sm" onclick="pldConfirmDeleteVenue(${pldVenuesJsArgForOnclick(id)})">Delete</button>`
+                        : ''
+                    }`
                   : '<span class="form-hint" style="font-size:12px;">API off</span>'
               }
             </td>
@@ -372,7 +420,7 @@ function renderVenues() {
         <p class="page-subtitle">Locations, addresses, and CRM contacts</p>
       </div>
       ${
-        rest
+        rest && pldVenuesCanCreate()
           ? `<button type="button" class="btn btn-primary" onclick="void pldOpenVenueEditorModal('')">+ Add venue</button>`
           : ''
       }

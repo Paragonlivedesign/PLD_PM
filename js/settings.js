@@ -39,8 +39,21 @@ function renderSettings() {
   `;
 }
 
+/** Labels for Settings → Appearance → Custom palette (theme mode = custom). */
+const CUSTOM_THEME_COLOR_LABELS = {
+  bgPrimary: 'Page background',
+  bgSecondary: 'Secondary background',
+  bgTertiary: 'Cards / panels',
+  bgElevated: 'Elevated surfaces',
+  textPrimary: 'Primary text',
+  textSecondary: 'Secondary text',
+  textTertiary: 'Muted text',
+};
+
 function renderSettingsAppearance() {
   const s = themeSettings;
+  const cp = { ...THEME_DEFAULTS.customPalette, ...(s.customPalette || {}) };
+  const customColorFields = Object.keys(CUSTOM_THEME_COLOR_LABELS);
   return `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <p style="color:var(--text-tertiary);font-size:13px;">Customize the look and feel. All changes apply instantly.</p>
@@ -54,13 +67,36 @@ function renderSettingsAppearance() {
         <div class="settings-section">
           <h3 class="settings-section-title">Theme Mode</h3>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-            ${['dark','light','midnight','solarized'].map(mode => `
+            ${['dark','light','midnight','custom'].map(mode => `
               <div onclick="setTheme('mode','${mode}');renderPage('settings');" style="cursor:pointer;padding:14px;text-align:center;border:2px solid ${s.mode === mode ? 'var(--accent-blue)' : 'var(--border-default)'};background:${s.mode === mode ? 'var(--accent-blue-muted)' : 'var(--bg-tertiary)'};transition:all 150ms;">
                 <div style="font-size:20px;margin-bottom:6px;">${uiIcon('theme'+mode.charAt(0).toUpperCase()+mode.slice(1))}</div>
                 <div style="font-size:12px;font-weight:600;text-transform:capitalize;">${mode}</div>
               </div>
             `).join('')}
           </div>
+          ${
+            s.mode === 'custom'
+              ? `
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-default);">
+            <p style="font-size:12px;color:var(--text-tertiary);margin:0 0 12px;line-height:1.45;">Choose your own backgrounds and text. Border contrast follows the page background. Hover states are derived from the tertiary color.</p>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+              ${customColorFields.map(field => {
+                const hex = cp[field] || THEME_DEFAULTS.customPalette[field];
+                const safe = String(hex).replace(/"/g, '&quot;');
+                const lab = CUSTOM_THEME_COLOR_LABELS[field];
+                return `
+              <div class="form-group" style="margin:0;">
+                <label class="form-label" style="margin-bottom:6px;">${lab}</label>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <input type="color" value="${safe}" onchange="setTheme('customPalette',{${field}:this.value});renderPage('settings');" style="width:44px;height:32px;border:1px solid var(--border-default);background:var(--bg-tertiary);cursor:pointer;padding:2px;flex-shrink:0;">
+                  <input type="text" class="form-input" value="${safe}" style="flex:1;min-width:0;font-family:monospace;font-size:12px;" onchange="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){setTheme('customPalette',{${field}:this.value});renderPage('settings');}">
+                </div>
+              </div>`;
+              }).join('')}
+            </div>
+          </div>`
+              : ''
+          }
         </div>
 
         <!-- UI Icons (emoji on/off for companies that prefer text-only or custom) -->
@@ -227,6 +263,8 @@ function pldHydrateSettingsGeneralInputs() {
     ta.classList.toggle('active', sn.audit_on);
     ta.setAttribute('aria-checked', String(sn.audit_on));
   }
+  const logo = document.getElementById('pldSettingsLogoUrl');
+  if (logo) logo.value = sn.logo_url;
 }
 
 function pldSettingsGeneralSnapshot() {
@@ -241,6 +279,11 @@ function pldSettingsGeneralSnapshot() {
     typeof sched.drive_time_buffer_hours === 'number' && !Number.isNaN(sched.drive_time_buffer_hours)
       ? sched.drive_time_buffer_hours
       : 4;
+  const branding = s.branding && typeof s.branding === 'object' ? s.branding : {};
+  const logo_url =
+    branding.logo_url != null && String(branding.logo_url).trim() !== ''
+      ? String(branding.logo_url).trim()
+      : '';
   return {
     name: t && t.name != null ? String(t.name) : '',
     default_timezone: tz,
@@ -249,6 +292,7 @@ function pldSettingsGeneralSnapshot() {
     buffer_on: sched.buffer_windows_enabled !== false,
     drive_time_buffer_hours: drive,
     audit_on: de.audit_logging_enabled !== false,
+    logo_url,
   };
 }
 
@@ -264,11 +308,14 @@ function renderSettingsGeneral() {
   const tConflict = sn.conflict_on ? 'toggle active' : 'toggle';
   const tBuffer = sn.buffer_on ? 'toggle active' : 'toggle';
   const tAudit = sn.audit_on ? 'toggle active' : 'toggle';
+  const logoVal = pldSettingsEsc(sn.logo_url);
   return `
     <div class="grid-2"><div>
       <div class="settings-section"><h3 class="settings-section-title">Organization</h3>
         <p style="font-size:12px;color:var(--text-tertiary);margin:-4px 0 12px;">Saved to the server (<code style="font-size:11px;">PUT /api/v1/tenant</code>). View: <code style="font-size:11px;">tenancy.settings.view</code>. Edit: <code style="font-size:11px;">tenancy.settings.edit</code>.</p>
         <div class="form-group"><label class="form-label">Company Name</label><input type="text" class="form-input" id="pldSettingsTenantName" value="${tenantName}" autocomplete="organization" /></div>
+        <div class="form-group"><label class="form-label">App logo URL</label><input type="url" class="form-input" id="pldSettingsLogoUrl" value="${logoVal}" placeholder="https://example.com/logo.png" autocomplete="off" />
+        <p style="font-size:11px;color:var(--text-tertiary);margin:4px 0 0;line-height:1.4;">Optional. Sidebar logo; use a public HTTPS image URL. Clear the field and save to restore the built-in default.</p></div>
         <div class="form-group"><label class="form-label">Default Timezone</label><select class="form-select" id="pldSettingsTimezone">
           ${tzSel('America/New_York', 'America/New_York (ET)')}
           ${tzSel('America/Chicago', 'America/Chicago (CT)')}
@@ -297,6 +344,14 @@ function renderSettingsGeneral() {
         <p style="font-size:12px;color:var(--text-tertiary);margin:-4px 0 10px;">Permanently deletes <strong>all</strong> operational data for this tenant in PostgreSQL (events, clients, personnel, documents, travel, …). <strong>Users and roles are kept</strong> so you can sign in again. Requires <code style="font-size:11px;">tenancy.settings.edit</code> and <code style="font-size:11px;">POST /api/v1/tenant/reset-data</code> with body <code style="font-size:11px;">{ "confirm": "RESET" }</code>.</p>
         <p style="font-size:11px;color:var(--text-tertiary);margin:0 0 10px;">Production APIs must set <code style="font-size:11px;">PLD_ALLOW_TENANT_DATA_RESET=1</code> or the request returns 403.</p>
         <button type="button" class="btn btn-danger" onclick="openTenantResetConfirmModal()" ${api ? '' : 'disabled title="Configure API base and sign in"'}>Reset all data</button>
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border-default);">
+          <h4 style="font-size:13px;margin:0 0 8px;font-weight:600;">Restore soft-deleted event</h4>
+          <p style="font-size:12px;color:var(--text-tertiary);margin:-4px 0 10px;line-height:1.45;">Brings back an event that was soft-deleted. Requires <code style="font-size:11px;">tenancy.settings.edit</code> (<code style="font-size:11px;">POST /api/v1/events/:id/restore</code>). You need the event UUID (e.g. from audit or support).</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="text" class="form-input" id="pldSettingsRestoreEventId" placeholder="Event UUID" autocomplete="off" style="min-width:260px;flex:1;max-width:420px;" />
+            <button type="button" class="btn btn-secondary btn-sm" onclick="void submitRestoreSoftDeletedEventFromSettings()" ${api ? '' : 'disabled title="Configure API base and sign in"'}>Restore event</button>
+          </div>
+        </div>
       </div>
     </div></div>
   `;
@@ -765,9 +820,14 @@ async function submitSettingsGeneral() {
   const tConflict = document.getElementById('pldSettingsToggleConflict');
   const tBuffer = document.getElementById('pldSettingsToggleBuffer');
   const tAudit = document.getElementById('pldSettingsToggleAudit');
+  const logoEl = document.getElementById('pldSettingsLogoUrl');
+  const logoRaw = logoEl ? String(logoEl.value || '').trim() : '';
   const settings = {
     default_timezone: tz,
     default_currency: cur,
+    branding: {
+      logo_url: logoRaw === '' ? null : logoRaw,
+    },
     features: {
       scheduling: {
         conflict_detection_enabled: !!(tConflict && tConflict.classList.contains('active')),
@@ -858,6 +918,24 @@ async function submitTenantResetAllData() {
     }
   }
   if (typeof renderPage === 'function') renderPage('settings');
+}
+
+async function submitRestoreSoftDeletedEventFromSettings() {
+  const el = document.getElementById('pldSettingsRestoreEventId');
+  const raw = el && el.value != null ? String(el.value).trim() : '';
+  if (!raw) {
+    if (typeof showToast === 'function') showToast('Enter the event UUID', 'warning');
+    return;
+  }
+  if (typeof window.pldRestoreEventViaApi !== 'function') {
+    if (typeof showToast === 'function') showToast('Restore is not available', 'error');
+    return;
+  }
+  const ui = await window.pldRestoreEventViaApi(raw);
+  if (!ui) return;
+  if (typeof showToast === 'function') showToast('Event restored', 'success');
+  if (typeof window.pldRefetchEventsListFromApi === 'function') await window.pldRefetchEventsListFromApi();
+  if (el) el.value = '';
 }
 
 // ============================================

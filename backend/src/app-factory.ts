@@ -21,10 +21,12 @@ import {
   invoicesRouter,
   reportsRouter,
 } from "./modules/financial/index.js";
+import { contactPersonsHubRouter } from "./modules/contacts/hub-routes.js";
 import { clientsRouter } from "./modules/clients/routes.js";
 import { venuesRouter } from "./modules/venues/routes.js";
 import { eventsRouter } from "./modules/events/routes.js";
 import { vendorsRouter } from "./modules/vendors/routes.js";
+import { tasksRouter } from "./modules/tasks/routes.js";
 import { meRouter } from "./modules/me/routes.js";
 import {
   payPeriodsRouter,
@@ -124,9 +126,11 @@ export function buildApp(): express.Application {
 
   const apiV1Ctx = Router();
   apiV1Ctx.use(requestContextMiddleware);
+  apiV1Ctx.use("/contact-persons", contactPersonsHubRouter);
   apiV1Ctx.use("/clients", clientsRouter);
   apiV1Ctx.use("/venues", venuesRouter);
   apiV1Ctx.use("/vendors", vendorsRouter);
+  apiV1Ctx.use("/tasks", tasksRouter);
   apiV1Ctx.use("/events", eventsRouter);
   apiV1Ctx.use("/me", meRouter);
   apiV1Ctx.use("/time", timeRouter);

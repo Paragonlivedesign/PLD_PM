@@ -3,6 +3,7 @@ export const SHARED_VERSION = "0.2.0";
 
 export const EVENT_STATUSES = [
   "draft",
+  "bidding",
   "confirmed",
   "in_progress",
   "completed",
@@ -51,6 +52,40 @@ export type ContactParentType =
   | "vendor_organization"
   | "venue";
 
+/** Single email on a CRM contact person (JSONB in DB). */
+export type ContactEmailEntry = {
+  address: string;
+  normalized: string;
+  is_primary: boolean;
+  label?: string;
+};
+
+/** Single phone on a CRM contact person (JSONB in DB). */
+export type ContactPhoneEntry = {
+  address: string;
+  /** E.164 when normalized; null if not yet parsed */
+  e164: string | null;
+  is_primary: boolean;
+  label?: string;
+};
+
+/** Canonical tenant-scoped person; `contacts` rows are memberships under orgs. */
+export type ContactPersonResponse = {
+  id: string;
+  tenant_id: string;
+  display_name: string;
+  emails: ContactEmailEntry[];
+  phones: ContactPhoneEntry[];
+  primary_email_normalized: string | null;
+  personnel_id: string | null;
+  user_id: string | null;
+  metadata: Record<string, unknown>;
+  created_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 /** Roster row embedded on a contact when `personnel_id` is set; field visibility matches personnel list rules. */
 export type ContactPersonnelEmbed = {
   id: string;
@@ -78,6 +113,8 @@ export type ContactResponse = {
   id: string;
   parent_type: ContactParentType;
   parent_id: string;
+  /** Canonical person when migrated / created via hub. */
+  person_id: string | null;
   personnel_id: string | null;
   /** Present when `personnel_id` is set; rates/contact fields may be null per caller permissions. */
   personnel?: ContactPersonnelEmbed | null;
@@ -87,6 +124,8 @@ export type ContactResponse = {
   title: string | null;
   is_primary: boolean;
   metadata: Record<string, unknown>;
+  /** Embedded person summary when requested by API. */
+  person?: ContactPersonResponse | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -437,4 +476,48 @@ export type TruckRoutePublicResponse = {
   route_geometry: RouteGeometryResponse | null;
   status: TruckRouteResponse["status"];
   driver_share_expires_at: string | null;
+};
+
+/** Tasks / roadmap — contracts/tasks.contract.md */
+export const TASK_STATUSES = [
+  "open",
+  "in_progress",
+  "blocked",
+  "done",
+  "cancelled",
+] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+export const TASK_TYPES = ["task", "milestone", "checklist"] as const;
+export type TaskTypeEnum = (typeof TASK_TYPES)[number];
+
+export type TaskResponse = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  task_type: TaskTypeEnum;
+  event_id: string | null;
+  assignee_personnel_id: string | null;
+  parent_task_id: string | null;
+  start_at: string | null;
+  due_at: string | null;
+  completion_percent: number | null;
+  tags: string[];
+  sort_order: number;
+  metadata: Record<string, unknown>;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type TaskListMeta = {
+  cursor: string | null;
+  has_more: boolean;
+  total_count: number;
 };

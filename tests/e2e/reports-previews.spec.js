@@ -14,7 +14,7 @@ test.describe('Reports and previews', () => {
       });
     });
     await page.goto('/');
-    await expect(page).toHaveTitle(/PLD_PM|Production Manager/i);
+    await expect(page).toHaveTitle(/PLD_PM|PM/i);
     // init.js may not reach renderPage('dashboard') if SQL/Firebase boot fails; force shell render for e2e.
     await page.waitForFunction(() => typeof window.renderPage === 'function', { timeout: 60_000 });
     await page.evaluate(() => {

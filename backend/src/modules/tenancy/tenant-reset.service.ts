@@ -94,9 +94,13 @@ export async function resetTenantOperationalData(tenantId: string): Promise<{ de
     await run(`DELETE FROM custom_field_index WHERE tenant_id = $1`);
     await run(`DELETE FROM custom_field_definitions WHERE tenant_id = $1`);
 
+    await run(`DELETE FROM tasks WHERE tenant_id = $1`);
+
     await run(`DELETE FROM events WHERE tenant_id = $1`);
 
     await run(`DELETE FROM contacts WHERE tenant_id = $1`);
+
+    await run(`DELETE FROM contact_persons WHERE tenant_id = $1`);
 
     await run(`DELETE FROM vendors WHERE tenant_id = $1`);
     await run(`DELETE FROM clients WHERE tenant_id = $1`);

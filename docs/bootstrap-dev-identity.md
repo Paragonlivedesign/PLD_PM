@@ -29,7 +29,24 @@ This captures the agreed strategy for replacing UI mock data with **real tenants
   - Insert users with **bcrypt** (or existing auth hash) for password `pld`.
   - Grant owner user full permissions (`*` or platform role per `auth` module).
 
-**Implemented:** `database/migrations/009_bootstrap_dev_identity.sql` (test tenant + `testtenant@testtenant.com`). `scripts/seed-postgres.mjs` inserts the owner on the demo tenant using `OWNER_EMAIL` / `PLD_DEV_OWNER_EMAIL` (default `cody@paragonlivedesign.com`), password `pld`.
+**Implemented:** `database/migrations/009_bootstrap_dev_identity.sql` (test tenant + `testtenant@testtenant.com`). `database/migrations/018_dev_auth_fixtures.sql` aligns `admin@demo.local` to password `pld` and adds multi-role demo users plus manager/viewer users on the test tenant (see table below). `scripts/seed-postgres.mjs` inserts the owner on the demo tenant using `OWNER_EMAIL` / `PLD_DEV_OWNER_EMAIL` (default `cody@paragonlivedesign.com`), password `pld`.
+
+### Dev login buffet (Postgres seed / migration 018)
+
+All passwords **`pld`** (dev only). Use the top-bar **Dev users** control on localhost or the login page quick chips.
+
+| Tenant slug | Email | Role / notes |
+|-------------|-------|----------------|
+| `demo` | `admin@demo.local` | admin (`*`) |
+| `demo` | `manager@demo.local` | manager |
+| `demo` | `coordinator@demo.local` | coordinator |
+| `demo` | `viewer@demo.local` | viewer |
+| `test` | `testtenant@testtenant.com` | admin (`*`) |
+| `test` | `manager@testtenant.com` | manager |
+| `test` | `viewer@testtenant.com` | viewer |
+| `demo` | *(from seed)* `OWNER_EMAIL` / `PLD_DEV_OWNER_EMAIL` | admin (`*`), idempotent insert in `npm run db:seed` |
+
+**Tasks / roadmap:** Creating tasks requires `tasks:create` (see `017_tasks_module.sql`, expanded by `019_tasks_rbac_expand.sql`). **Demo admin** and **demo manager** always have it; **demo coordinator** has create/update after `019`; **demo viewer** is **read-only** (`tasks:read`). **Test tenant** manager has full task permissions after `019`; **test viewer** is read-only. After RBAC migrations, **sign out and sign in** so permission cache refreshes.
 - **SPA**: No need to embed your email in the **client** unless you want a dev-only login hint; prefer **server-side seed** only.
 - **Security**: Prefer **`OWNER_EMAIL=Cody@paragonlivedesign.com`** in root `.env` (gitignored) for seeds so the address is not committed; if the email is hardcoded in a migration, document that public repos must use env-driven seed instead. Rotate `pld` before production.
 

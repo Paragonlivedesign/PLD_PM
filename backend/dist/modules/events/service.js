@@ -9,6 +9,7 @@ import { validatePrimaryContactForEvent } from "../contacts/event-validation.js"
 import { validateCustomFields } from "../custom-fields/service.js";
 import { emitEntityCustomFieldsUpdated } from "../../domain/entity-events.js";
 import { writeAuditLog } from "../audit/service.js";
+import { purgeEventRelatedData, summarizeEventDeleteBlockers, totalBlockers, } from "./event-delete-support.js";
 export function encodeEventCursor(ev, sortBy) {
     let v;
     switch (sortBy) {
@@ -297,12 +298,25 @@ export async function updateEvent(tenantId, userId, id, body) {
     }
     return { ok: true, event: updated };
 }
-export async function deleteEvent(tenantId, userId, id) {
+export async function deleteEvent(tenantId, userId, id, options) {
     const existing = await evRepo.getEventById(pool, tenantId, id);
     if (!existing) {
         return { ok: false, code: "not_found", message: "Event not found", status: 404 };
     }
-    // Wave 1: no scheduling/financial modules — allow delete
+    const force = options?.force === true;
+    const blockers = await summarizeEventDeleteBlockers(pool, tenantId, id);
+    if (totalBlockers(blockers) > 0 && !force) {
+        return {
+            ok: false,
+            code: "conflict",
+            message: "Event has related scheduling, financial, or document data. Open the event tabs to review, cancel the event instead, or delete with force to remove related rows first.",
+            status: 409,
+            details: { blockers },
+        };
+    }
+    if (totalBlockers(blockers) > 0 && force) {
+        await purgeEventRelatedData(pool, tenantId, id);
+    }
     const del = await evRepo.softDeleteEvent(pool, tenantId, id);
     if (!del) {
         return { ok: false, code: "not_found", message: "Event not found", status: 404 };
@@ -324,6 +338,34 @@ export async function deleteEvent(tenantId, userId, id) {
         changes: { before: { name: existing.name } },
     }).catch(() => undefined);
     return { ok: true, deleted: del };
+}
+export async function restoreSoftDeletedEvent(tenantId, userId, id) {
+    const row = await evRepo.getEventRowByIdAnyDeletedState(pool, tenantId, id);
+    if (!row) {
+        return { ok: false, code: "not_found", message: "Event not found", status: 404 };
+    }
+    if (row.deleted_at === null) {
+        return { ok: false, code: "not_deleted", message: "Event is not deleted", status: 409 };
+    }
+    const restored = await evRepo.restoreSoftDeletedEventRow(pool, tenantId, id);
+    if (!restored) {
+        return { ok: false, code: "not_found", message: "Could not restore event", status: 404 };
+    }
+    domainBus.emit("event.restored", {
+        event_id: id,
+        tenant_id: tenantId,
+        restored_by: userId,
+        name: restored.name,
+    });
+    void writeAuditLog(pool, {
+        tenantId,
+        userId,
+        entityType: "event",
+        entityId: id,
+        action: "restore",
+        changes: { after: { name: restored.name } },
+    }).catch(() => undefined);
+    return { ok: true, event: restored };
 }
 export async function cloneEvent(tenantId, userId, sourceId, body) {
     const src = await evRepo.getEventById(pool, tenantId, sourceId);

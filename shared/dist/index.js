@@ -2,6 +2,7 @@
 export const SHARED_VERSION = "0.2.0";
 export const EVENT_STATUSES = [
     "draft",
+    "bidding",
     "confirmed",
     "in_progress",
     "completed",
@@ -29,3 +30,13 @@ export const TRUCK_STATUSES = [
     "maintenance",
     "retired",
 ];
+/** Tasks / roadmap — contracts/tasks.contract.md */
+export const TASK_STATUSES = [
+    "open",
+    "in_progress",
+    "blocked",
+    "done",
+    "cancelled",
+];
+export const TASK_PRIORITIES = ["low", "normal", "high", "urgent"];
+export const TASK_TYPES = ["task", "milestone", "checklist"];

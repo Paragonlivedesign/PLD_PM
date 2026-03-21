@@ -99,21 +99,121 @@ function openCloneEventModal(optionalSourceEventId) {
 
 function openAssignCrewModal(eventId) {
   const ev = EVENTS.find(e => e.id === eventId);
+  if (!ev) {
+    showToast('Event not found.', 'error');
+    return;
+  }
   const assigned = Array.isArray(ev.crew) ? ev.crew : [];
   const available = PERSONNEL.filter(p => !assigned.includes(p.id));
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   openModal('Assign Crew — ' + ev.name, `
     <input type="hidden" id="assignCrewEventId" value="${String(eventId).replace(/"/g, '&quot;')}">
-    <div class="form-group"><label class="form-label">Search personnel</label><input type="text" class="form-input" placeholder="Filter roster…"></div>
-    <div style="max-height:300px;overflow-y:auto;">
-      ${available.map(p => { const dept = getDepartment(p.dept); const deptUuid = uuidRe.test(String(p.dept || '')) ? String(p.dept).replace(/"/g, '&quot;') : ''; const roleEsc = String(p.role || 'crew').replace(/"/g, '&quot;'); return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--border-subtle);cursor:pointer;" onclick="this.querySelector('input').checked=!this.querySelector('input').checked"><input type="checkbox" class="assign-crew-cb" value="${String(p.id).replace(/"/g, '&quot;')}" data-role="${roleEsc}"${deptUuid ? ` data-dept="${deptUuid}"` : ''} onclick="event.stopPropagation()"><div style="width:32px;height:32px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;">${p.initials}</div><div style="flex:1;"><div style="font-weight:500;font-size:13px;">${p.name}</div><div style="font-size:11px;color:var(--text-tertiary);">${p.role} · ${dept.name}</div></div><div style="font-size:12px;color:var(--text-secondary);">${formatCurrency(p.rate)}/day</div></div>`; }).join('')}
+    <div class="form-group">
+      <label class="form-label">Crew Members</label>
+      <button type="button" class="pld-picker-trigger" onclick="void pldOpenAssignCrewPersonnelPicker()"><span id="assignCrewPickerLabel">Search personnel…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button>
+      <p class="form-hint" style="margin-top:6px;margin-bottom:0;">Pick one person at a time. You can add multiple crew members before assigning.</p>
     </div>
+    <div id="assignCrewSelectedList" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;margin-top:4px;">
+      <div style="font-size:12px;color:var(--text-tertiary);">No crew selected yet.</div>
+    </div>
+    <div id="assignCrewSelectedHidden" style="display:none;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
       <div class="form-group"><label class="form-label">Start Date</label><input type="date" id="assignCrewStart" class="form-input" value="${ev.startDate}"></div>
       <div class="form-group"><label class="form-label">End Date</label><input type="date" id="assignCrewEnd" class="form-input" value="${ev.endDate}"></div>
     </div>
     <div class="form-group"><label class="form-label">Call Time</label><input type="time" id="assignCrewCallTime" class="form-input" value="08:00"></div>
   `, `<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button><button type="button" class="btn btn-primary" onclick="void pldSubmitAssignCrewFromModal()">Assign Selected</button>`);
+  pldInitAssignCrewPickerState(available);
+}
+
+let pldAssignCrewPickerState = null;
+
+function pldAssignCrewEsc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function pldInitAssignCrewPickerState(availablePersonnel) {
+  const arr = Array.isArray(availablePersonnel) ? availablePersonnel : [];
+  const availableById = new Map();
+  arr.forEach((p) => {
+    if (p && p.id) availableById.set(String(p.id), p);
+  });
+  pldAssignCrewPickerState = {
+    availableById,
+    selectedById: new Map(),
+  };
+  pldRenderAssignCrewSelected();
+}
+
+function pldRenderAssignCrewSelected() {
+  const listEl = document.getElementById('assignCrewSelectedList');
+  const hiddenEl = document.getElementById('assignCrewSelectedHidden');
+  const labelEl = document.getElementById('assignCrewPickerLabel');
+  if (!listEl || !hiddenEl || !labelEl) return;
+  if (!pldAssignCrewPickerState || !pldAssignCrewPickerState.selectedById) {
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary);">No crew selected yet.</div>';
+    hiddenEl.innerHTML = '';
+    labelEl.textContent = 'Search personnel…';
+    return;
+  }
+  const selected = Array.from(pldAssignCrewPickerState.selectedById.values());
+  labelEl.textContent = selected.length ? `Add crew member… (${selected.length} selected)` : 'Search personnel…';
+  if (!selected.length) {
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-tertiary);">No crew selected yet.</div>';
+    hiddenEl.innerHTML = '';
+    return;
+  }
+  listEl.innerHTML = selected.map((p) => {
+    const dept = getDepartment(p.dept);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border-subtle);border-radius:var(--radius);"><div style="width:30px;height:30px;border-radius:50%;background:${p.avatar};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;">${pldAssignCrewEsc(p.initials)}</div><div style="flex:1;min-width:0;"><div style="font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${pldAssignCrewEsc(p.name)}</div><div style="font-size:11px;color:var(--text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${pldAssignCrewEsc(p.role || 'Crew')} · ${pldAssignCrewEsc(dept.name || 'Unknown')}</div></div><button type="button" class="btn btn-ghost btn-sm" onclick="void pldRemoveAssignCrewSelection('${pldAssignCrewEsc(String(p.id))}')">Remove</button></div>`;
+  }).join('');
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  hiddenEl.innerHTML = selected.map((p) => {
+    const role = String(p.role || 'crew');
+    const dept = String(p.dept || '');
+    const deptAttr = uuidRe.test(dept) ? ` data-dept="${pldAssignCrewEsc(dept)}"` : '';
+    return `<input type="checkbox" class="assign-crew-cb" checked value="${pldAssignCrewEsc(String(p.id))}" data-role="${pldAssignCrewEsc(role)}"${deptAttr}>`;
+  }).join('');
+}
+
+function pldOpenAssignCrewPersonnelPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  if (!pldAssignCrewPickerState || !pldAssignCrewPickerState.availableById) {
+    pldInitAssignCrewPickerState([]);
+  }
+  const availableArr = Array.from(pldAssignCrewPickerState.availableById.values());
+  const items = typeof pickerItemsFromPersonnel === 'function'
+    ? pickerItemsFromPersonnel(availableArr)
+    : availableArr.map((p) => ({ id: String(p.id), primary: p.name || '—', secondary: p.role || '' }));
+  openPickerModal({
+    title: 'Select crew member',
+    items,
+    searchPlaceholder: 'Search personnel…',
+    emptyMessage: 'No available personnel to assign.',
+    onSelect: function (id) {
+      const key = String(id || '');
+      if (!key) return;
+      if (!pldAssignCrewPickerState || !pldAssignCrewPickerState.availableById) return;
+      const person = pldAssignCrewPickerState.availableById.get(key);
+      if (!person) return;
+      if (pldAssignCrewPickerState.selectedById.has(key)) {
+        showToast('Crew member already selected.', 'warning');
+        return;
+      }
+      pldAssignCrewPickerState.selectedById.set(key, person);
+      pldRenderAssignCrewSelected();
+    },
+  });
+}
+
+function pldRemoveAssignCrewSelection(personnelId) {
+  const key = String(personnelId || '');
+  if (!key || !pldAssignCrewPickerState || !pldAssignCrewPickerState.selectedById) return;
+  pldAssignCrewPickerState.selectedById.delete(key);
+  pldRenderAssignCrewSelected();
 }
 
 function openPersonnelCSVImportModal() {
@@ -191,6 +291,63 @@ function openAssignTruckModal(eventId) {
   `, `<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button><button type="button" class="btn btn-primary" onclick="void pldSubmitAssignTrucksToEventFromModal()">Assign</button>`);
 }
 
+function pldAssignTruckToEventRefreshLabels() {
+  const eid = document.getElementById('assignTruckToEventEventId');
+  const elbl = document.getElementById('assignTruckToEventEventLabel');
+  const did = document.getElementById('assignTruckToEventDriverId');
+  const dlbl = document.getElementById('assignTruckToEventDriverLabel');
+  if (eid && elbl) {
+    const vid = eid.value ? String(eid.value) : '';
+    if (!vid) elbl.textContent = 'Select event…';
+    else {
+      const ev = EVENTS.find((x) => x.id === vid);
+      elbl.textContent = ev ? `${ev.name} — ${getVenue(ev.venue).city}` : 'Select event…';
+    }
+  }
+  if (did && dlbl) {
+    const dv = did.value ? String(did.value) : '';
+    if (!dv) dlbl.textContent = 'Select driver…';
+    else {
+      const p = getPersonnel(dv);
+      dlbl.textContent = p ? p.name : 'Select driver…';
+    }
+  }
+}
+
+function pldOpenAssignTruckToEventEventPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  openPickerModal({
+    title: 'Select event',
+    items: typeof pickerItemsFromEvents === 'function' ? pickerItemsFromEvents(EVENTS, { excludeTerminal: true }) : [],
+    pickerFilter: 'events',
+    onSelect: function (id) {
+      const h = document.getElementById('assignTruckToEventEventId');
+      if (h) h.value = id;
+      pldAssignTruckToEventRefreshLabels();
+    },
+  });
+}
+
+function pldOpenAssignTruckToEventDriverPicker() {
+  if (typeof openPickerModal !== 'function') return;
+  const items = typeof pickerItemsFromPersonnel === 'function' ? pickerItemsFromPersonnel(PERSONNEL).slice() : [];
+  items.unshift({
+    id: '__external__',
+    primary: 'External driver',
+    secondary: 'No linked personnel record',
+  });
+  openPickerModal({
+    title: 'Select driver',
+    items: items,
+    onSelect: function (id) {
+      const h = document.getElementById('assignTruckToEventDriverId');
+      if (!h) return;
+      h.value = id === '__external__' ? '' : id;
+      pldAssignTruckToEventRefreshLabels();
+    },
+  });
+}
+
 function openAssignTruckToEventModal(truckId) {
   const t = typeof getTruck === 'function' ? getTruck(truckId) : TRUCKS.find((x) => x.id === truckId);
   if (!t) {
@@ -199,10 +356,12 @@ function openAssignTruckToEventModal(truckId) {
   }
   openModal('Assign ' + t.name + ' to Event', `
     <input type="hidden" id="assignTruckToEventTruckId" value="${String(truckId).replace(/"/g, '&quot;')}">
+    <input type="hidden" id="assignTruckToEventEventId" value="">
+    <input type="hidden" id="assignTruckToEventDriverId" value="">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-subtle);"><div style="font-size:24px;">🚛</div><div><div style="font-weight:600;">${t.name}</div><div style="font-size:12px;color:var(--text-tertiary);">${t.type}</div></div></div>
-    <div class="form-group"><label class="form-label">Event</label><select id="assignTruckToEventSelect" class="form-select"><option value="">Select event…</option>${EVENTS.filter(e => !isTerminalEventPhase(e.phase)).map(e => `<option value="${String(e.id).replace(/"/g, '&quot;')}">${e.name} — ${getVenue(e.venue).city}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Event</label><button type="button" class="pld-picker-trigger" onclick="pldOpenAssignTruckToEventEventPicker()"><span id="assignTruckToEventEventLabel">Select event…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div class="form-group"><label class="form-label">Departure</label><input type="date" id="assignTruckToEventDeparture" class="form-input"></div><div class="form-group"><label class="form-label">Return</label><input type="date" id="assignTruckToEventReturn" class="form-input"></div></div>
-    <div class="form-group"><label class="form-label">Driver</label><select id="assignTruckToEventDriver" class="form-select"><option value="">Select…</option>${PERSONNEL.slice(0,4).map(p => `<option value="${String(p.id).replace(/"/g, '&quot;')}">${p.name}</option>`).join('')}<option value="">External driver</option></select></div>
+    <div class="form-group"><label class="form-label">Driver</label><button type="button" class="pld-picker-trigger" onclick="pldOpenAssignTruckToEventDriverPicker()"><span id="assignTruckToEventDriverLabel">Select driver…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button></div>
     <div class="form-group"><label class="form-label">Route Notes</label><textarea id="assignTruckToEventNotes" class="form-textarea" placeholder="Stops, special instructions…"></textarea></div>
   `, `<button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button><button type="button" class="btn btn-primary" onclick="void pldSubmitAssignTruckToEventFromModal()">Assign</button>`);
 }
@@ -869,26 +1028,30 @@ function openCalendarDayModal(dateStr, existingEvents) {
 
     <div style="border-top:${evObjects.length > 0 ? '1px solid var(--border-subtle);padding-top:16px;' : 'none;'}">
       <div style="font-size:12px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;margin-bottom:12px;">Quick Create Event</div>
-      <div class="form-group"><label class="form-label">Event Name</label><input type="text" class="form-input" placeholder="e.g. Corporate Gala 2026"></div>
+      <div class="form-group"><label class="form-label">Event Name</label><input type="text" class="form-input" id="calQuickEventName" placeholder="e.g. Corporate Gala 2026"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="form-group"><label class="form-label">Client</label><select class="form-select"><option value="">Select…</option>${CLIENTS.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}</select></div>
-        <div class="form-group"><label class="form-label">Venue</label><select class="form-select"><option value="">Select…</option>${VENUES.map(v => `<option value="${v.id}">${v.name}</option>`).join('')}</select></div>
+        <div class="form-group"><label class="form-label">Client</label><input type="hidden" id="calQuickClient" value=""><button type="button" class="pld-picker-trigger" onclick="pldOpenCalendarQuickClientPicker()"><span id="calQuickClientLabel">Select client…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button></div>
+        <div class="form-group"><label class="form-label">Venue</label><input type="hidden" id="calQuickVenue" value=""><button type="button" class="pld-picker-trigger" onclick="pldOpenCalendarQuickVenuePicker()"><span id="calQuickVenueLabel">Select venue…</span><span style="opacity:0.55;font-size:10px;" aria-hidden="true">▾</span></button></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" value="${dateStr}"></div>
-        <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-input" value="${dateStr}"></div>
+        <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="calQuickStart" value="${dateStr}"></div>
+        <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-input" id="calQuickEnd" value="${dateStr}"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="form-group"><label class="form-label">Budget</label><input type="number" class="form-input" placeholder="$0"></div>
-        <div class="form-group"><label class="form-label">Priority</label><select class="form-select"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select></div>
+        <div class="form-group"><label class="form-label">Budget</label><input type="number" class="form-input" id="calQuickBudget" placeholder="0" min="0" step="1"></div>
+        <div class="form-group"><label class="form-label">Priority</label><select class="form-select" id="calQuickPriority"><option value="low">Low</option><option value="medium" selected>Medium</option><option value="high">High</option><option value="critical">Critical</option></select></div>
       </div>
     </div>
   `;
 
   openModal('Calendar — ' + formatted, body, `
     <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-    <button class="btn btn-primary" onclick="showToast('Event created!','success');closeModal();">Create Event</button>
+    <button type="button" class="btn btn-primary" onclick="void submitCalendarQuickEventForm()">Create Event</button>
   `);
+  setTimeout(function () {
+    if (typeof pldUpdateCalendarQuickClientLabel === 'function') pldUpdateCalendarQuickClientLabel();
+    if (typeof pldUpdateCalendarQuickVenueLabel === 'function') pldUpdateCalendarQuickVenueLabel();
+  }, 0);
 }
 
 function openEditEventModal(eventId) {

@@ -4,6 +4,7 @@ const uuid = z.string().uuid();
 
 const eventStatusZ = z.enum([
   "draft",
+  "bidding",
   "confirmed",
   "in_progress",
   "completed",

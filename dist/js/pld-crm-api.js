@@ -19,13 +19,43 @@
   /**
    * @param {'client'|'venue'|'vendor'} kind
    * @param {string} parentId
+   * @param {{ silent?: boolean }} [opts] When silent, failed requests return [] without toasts (for batch pickers).
    * @returns {Promise<Array<Record<string, unknown>>>}
    */
-  global.pldListContactsForParent = async function (kind, parentId) {
+  /**
+   * @param {{ search?: string, limit?: number, parent_type?: string, parent_id?: string }} [query]
+   * @returns {Promise<Array<Record<string, unknown>>>}
+   */
+  global.pldListContactPersonsFromApi = async function (query) {
+    if (typeof global.pldApiFetch !== 'function') return [];
+    const q = new URLSearchParams();
+    q.set('limit', String((query && query.limit) || 100));
+    if (query && query.search) q.set('search', String(query.search).trim());
+    if (query && query.parent_type && query.parent_id) {
+      q.set('parent_type', String(query.parent_type));
+      q.set('parent_id', String(query.parent_id));
+    }
+    const res = await global.pldApiFetch('/api/v1/contact-persons?' + q.toString(), { method: 'GET' });
+    global.__pldContactsHubMeta = null;
+    global.__pldContactsHubFetchError = '';
+    if (!res.ok) {
+      global.__pldContactsHubFetchError = errMsg(res);
+      if (typeof showToast === 'function') showToast(errMsg(res), 'error');
+      return [];
+    }
+    const d = res.body && res.body.data;
+    const meta = res.body && res.body.meta;
+    if (meta && typeof meta === 'object') global.__pldContactsHubMeta = meta;
+    return Array.isArray(d) ? d : [];
+  };
+
+  global.pldListContactsForParent = async function (kind, parentId, opts) {
     if (typeof global.pldApiFetch !== 'function') return [];
     const res = await global.pldApiFetch(contactsBase(kind, parentId), { method: 'GET' });
     if (!res.ok) {
-      if (typeof showToast === 'function') showToast(errMsg(res), 'error');
+      if (!opts || !opts.silent) {
+        if (typeof showToast === 'function') showToast(errMsg(res), 'error');
+      }
       return [];
     }
     const d = res.body && res.body.data;

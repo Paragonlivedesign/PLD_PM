@@ -27,6 +27,16 @@ function renderPage(page, opts) {
     case 'clients': html = typeof renderClients === 'function' ? renderClients() : ''; break;
     case 'venues': html = typeof renderVenues === 'function' ? renderVenues() : ''; break;
     case 'vendors': html = typeof renderVendors === 'function' ? renderVendors() : ''; break;
+    case 'contacts': html = typeof renderContacts === 'function' ? renderContacts() : ''; break;
+    case 'tasks': html = typeof renderTasks === 'function' ? renderTasks() : ''; break;
+    case 'task': html = typeof renderTaskPage === 'function' ? renderTaskPage() : ''; break;
+    case 'client': html = typeof renderClientProfilePage === 'function' ? renderClientProfilePage() : ''; break;
+    case 'vendor': html = typeof renderVendorProfilePage === 'function' ? renderVendorProfilePage() : ''; break;
+    case 'venue': html = typeof renderVenueProfilePage === 'function' ? renderVenueProfilePage() : ''; break;
+    case 'contact': html = typeof renderContactProfilePage === 'function' ? renderContactProfilePage() : ''; break;
+    case 'personnel-profile':
+      html = typeof renderPersonnelProfilePage === 'function' ? renderPersonnelProfilePage() : '';
+      break;
     case 'settings': html = typeof renderSettings === 'function' ? renderSettings() : ''; break;
     case 'search': html = typeof renderSearchPage === 'function' ? renderSearchPage() : ''; break;
     case 'platform-admin':
@@ -110,17 +120,51 @@ function renderPage(page, opts) {
     if (page === 'vendors' && typeof window.pldRefreshVendorsFromApiIfConfigured === 'function') {
       setTimeout(() => {
         void (async () => {
+          if (typeof window.__pldVendorsApiLoadError !== 'undefined') window.__pldVendorsApiLoadError = null;
           await window.pldRefreshVendorsFromApiIfConfigured();
           if (typeof renderPage === 'function') renderPage('vendors', { skipModuleDataFetch: true });
         })();
       }, 0);
     }
+    if (page === 'contacts' && typeof window.pldRefreshContactsHub === 'function') {
+      setTimeout(() => {
+        void window.pldRefreshContactsHub();
+      }, 0);
+    }
     if (page === 'platform-admin' && typeof pldHydratePlatformAdmin === 'function') {
       setTimeout(() => pldHydratePlatformAdmin(), 0);
+    }
+    if (page === 'tasks' && typeof window.pldTasksRefresh === 'function') {
+      setTimeout(() => {
+        void window.pldTasksRefresh();
+      }, 0);
+    }
+    if (page === 'task' && typeof window.pldHydrateTaskDetailPage === 'function') {
+      setTimeout(() => {
+        void window.pldHydrateTaskDetailPage();
+      }, 0);
+    }
+    if (
+      page === 'task' &&
+      typeof taskDetailTab !== 'undefined' &&
+      taskDetailTab === 'subtasks' &&
+      typeof selectedTaskId !== 'undefined' &&
+      selectedTaskId &&
+      typeof window.pldFillTaskSubtasksPanel === 'function'
+    ) {
+      setTimeout(() => {
+        void window.pldFillTaskSubtasksPanel(selectedTaskId);
+      }, 0);
     }
   }
   if (page === 'search' && typeof pldHydrateSearchPage === 'function') {
     setTimeout(() => pldHydrateSearchPage(), 0);
+  }
+  if (
+    (page === 'client' || page === 'vendor' || page === 'venue') &&
+    typeof window.pldCrmProfileAfterRender === 'function'
+  ) {
+    setTimeout(() => window.pldCrmProfileAfterRender(page), 0);
   }
   if (page === 'settings' && typeof settingsTab !== 'undefined' && settingsTab === 'customfields') {
     setTimeout(() => {

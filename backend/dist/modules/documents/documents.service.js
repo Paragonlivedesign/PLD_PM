@@ -9,6 +9,7 @@ import { getFieldDefinitions } from "../custom-fields/service.js";
 import { getEventByIdInternal } from "../events/service.js";
 import { listPersonnelBriefInternal, getPersonnelById } from "../personnel/index.js";
 import { createDownloadToken, verifyDownloadToken } from "./download-token.js";
+import { buildHtmlMergeSectionsForEvent } from "./document-merge-sections.js";
 import { buildGenerationContext, renderTemplateHtml } from "./generate-html.js";
 import { TEMPLATE_VARIABLE_CATALOG } from "./template-merge-catalog.js";
 import * as repo from "./repository.js";
@@ -291,6 +292,10 @@ export async function generateDocumentApi(storage, body, req) {
         fieldDefinitions: defs,
         dataOverrides: body.data_overrides,
     });
+    const sections = await buildHtmlMergeSectionsForEvent(ctx.tenantId, body.event_id);
+    flat.schedule_section = sections.schedule_section;
+    flat.travel_section = sections.travel_section;
+    flat.financial_section = sections.financial_section;
     const html = tpl.format === "markdown"
         ? `<pre>${renderTemplateHtml(tpl.content, flat)}</pre>`
         : renderTemplateHtml(tpl.content, flat);
@@ -416,6 +421,10 @@ export async function generateDocumentInternal(db, tenantId, userId, templateId,
         fieldDefinitions: defs,
         dataOverrides: { ...context.data },
     });
+    const sections = await buildHtmlMergeSectionsForEvent(tenantId, context.event_id);
+    flat.schedule_section = sections.schedule_section;
+    flat.travel_section = sections.travel_section;
+    flat.financial_section = sections.financial_section;
     const html = tpl.format === "markdown"
         ? `<pre>${renderTemplateHtml(tpl.content, flat)}</pre>`
         : renderTemplateHtml(tpl.content, flat);

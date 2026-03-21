@@ -537,6 +537,12 @@ function pldContextMenuClientRow(domEvent, rowEl) {
   const id = raw == null ? '' : String(raw).trim();
   if (!id || typeof window.pldShowContextMenu !== 'function') return;
   const items = [];
+  items.push({
+    label: 'Open profile',
+    action: function () {
+      if (typeof window.navigateToClient === 'function') window.navigateToClient(id);
+    },
+  });
   if (pldClientsUseRestApi()) {
     items.push({
       label: 'Contacts…',
@@ -576,7 +582,7 @@ function renderClients() {
             const cid = String(r.id == null ? '' : r.id).trim();
             const ec = cid ? pldClientsEventCount(cid) : 0;
             const dataAttr = cid ? ` data-client-id="${pldClientsDataAttrEsc(cid)}"` : '';
-            return `<tr${dataAttr} oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuClientRow(event, this);">
+            return `<tr${dataAttr} style="cursor:pointer;" onclick="pldNavigateClientListRow(event, this)" oncontextmenu="event.preventDefault();event.stopPropagation();pldContextMenuClientRow(event, this);">
           <td><strong>${pldClientsHtmlEsc(String(r.name || ''))}</strong></td>
           <td style="color:var(--text-tertiary);">${pldClientsHtmlEsc(pldClientsContactDisplay(c))}</td>
           <td style="color:var(--text-tertiary);">${pldClientsHtmlEsc(pldClientsEmailDisplay(c))}</td>

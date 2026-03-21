@@ -49,32 +49,38 @@ function renderAuthLogin() {
     </div>
     <div class="form-group">
       <label class="form-label">Password</label>
-      <input type="password" class="form-input" id="authLoginPassword" value="" autocomplete="current-password" placeholder="password (dev seed)" />
+      <input type="password" class="form-input" id="authLoginPassword" value="" autocomplete="current-password" placeholder="pld (dev seed)" />
     </div>
     <button type="button" class="btn btn-primary" style="width:100%;margin-top:8px;" onclick="submitAuthLogin()">Sign in</button>
+    ${typeof window.pldDevAuthLoginChipsHtml === 'function' ? window.pldDevAuthLoginChipsHtml() : ''}
     <p style="margin:16px 0 0;font-size:12px;text-align:center;">
       <a href="javascript:void(0)" onclick="navigateTo('forgot-password');return false;">Forgot password?</a>
     </p>
   `);
 }
 
-async function submitAuthLogin() {
-  var err = document.getElementById('authLoginErr');
-  if (err) {
-    err.classList.add('hidden');
-    err.textContent = '';
+/**
+ * POST /api/v1/auth/login — shared by manual sign-in and dev quick-switch.
+ * @param {string} tenant_slug
+ * @param {string} email
+ * @param {string} password
+ * @param {{ showErrorEl?: HTMLElement|null, navigateToDashboard?: boolean }} [opts]
+ * @returns {Promise<{ ok: boolean, message?: string }>}
+ */
+window.pldAuthLoginWithCredentials = async function pldAuthLoginWithCredentials(tenant_slug, email, password, opts) {
+  opts = opts || {};
+  var showEl = opts.showErrorEl || null;
+  if (showEl) {
+    showEl.classList.add('hidden');
+    showEl.textContent = '';
   }
-  var tenant = (document.getElementById('authLoginTenant') && document.getElementById('authLoginTenant').value) || 'demo';
-  var email = (document.getElementById('authLoginEmail') && document.getElementById('authLoginEmail').value) || '';
-  var password = (document.getElementById('authLoginPassword') && document.getElementById('authLoginPassword').value) || '';
-  var base =
-    typeof window.PLD_API_BASE === 'string' ? window.PLD_API_BASE.replace(/\/$/, '') : '';
+  var base = typeof window.PLD_API_BASE === 'string' ? window.PLD_API_BASE.replace(/\/$/, '') : '';
   var url = (base === '' ? '' : base) + '/api/v1/auth/login';
   try {
     var r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password, tenant_slug: tenant }),
+      body: JSON.stringify({ email: email, password: password, tenant_slug: tenant_slug }),
       credentials: 'include',
     });
     var body = await r.json().catch(function () {
@@ -87,28 +93,42 @@ async function submitAuthLogin() {
         msg +=
           ' Set JWT_SECRET in the repo root .env (copy from .env.example), then restart the API.';
       }
-      if (err) {
-        err.textContent = msg;
-        err.classList.remove('hidden');
+      if (showEl) {
+        showEl.textContent = msg;
+        showEl.classList.remove('hidden');
       }
-      return;
+      return { ok: false, message: msg };
     }
     if (typeof window.pldAuthSaveLoginPayload === 'function') {
       window.pldAuthSaveLoginPayload(body.data);
     }
     if (typeof window.pldRefreshTenantShell === 'function') await window.pldRefreshTenantShell();
+    if (typeof window.pldRehydrateCatalogAfterTenantContextChange === 'function') {
+      await window.pldRehydrateCatalogAfterTenantContextChange();
+    }
     if (typeof window.pldApplySessionIdentityChrome === 'function') window.pldApplySessionIdentityChrome();
     if (typeof window.pldUpdateApiSignInLink === 'function') window.pldUpdateApiSignInLink();
     if (typeof window.pldRefreshPlatformAdminNav === 'function') void window.pldRefreshPlatformAdminNav();
     if (typeof window.pldPresenceRestart === 'function') window.pldPresenceRestart();
-    if (typeof showToast === 'function') showToast('Signed in', 'success');
-    navigateTo('dashboard');
+    if (opts.navigateToDashboard !== false && typeof navigateTo === 'function') navigateTo('dashboard');
+    return { ok: true };
   } catch (e) {
-    if (err) {
-      err.textContent = 'Network error — is the API running?';
-      err.classList.remove('hidden');
+    var net = 'Network error — is the API running?';
+    if (showEl) {
+      showEl.textContent = net;
+      showEl.classList.remove('hidden');
     }
+    return { ok: false, message: net };
   }
+};
+
+async function submitAuthLogin() {
+  var err = document.getElementById('authLoginErr');
+  var tenant = (document.getElementById('authLoginTenant') && document.getElementById('authLoginTenant').value) || 'demo';
+  var email = (document.getElementById('authLoginEmail') && document.getElementById('authLoginEmail').value) || '';
+  var password = (document.getElementById('authLoginPassword') && document.getElementById('authLoginPassword').value) || '';
+  var res = await window.pldAuthLoginWithCredentials(tenant, email, password, { showErrorEl: err });
+  if (res.ok && typeof showToast === 'function') showToast('Signed in', 'success');
 }
 
 function renderAuthForgotPassword() {
@@ -253,6 +273,10 @@ async function submitAuthInviteAccept() {
   }
   if (typeof window.pldAuthSaveLoginPayload === 'function') {
     window.pldAuthSaveLoginPayload(body.data);
+  }
+  if (typeof window.pldRefreshTenantShell === 'function') await window.pldRefreshTenantShell();
+  if (typeof window.pldRehydrateCatalogAfterTenantContextChange === 'function') {
+    await window.pldRehydrateCatalogAfterTenantContextChange();
   }
   if (typeof window.pldUpdateApiSignInLink === 'function') window.pldUpdateApiSignInLink();
   if (typeof window.pldPresenceRestart === 'function') window.pldPresenceRestart();

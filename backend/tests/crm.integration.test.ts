@@ -58,6 +58,13 @@ END
 $pld_vendor_link$;
 `);
       }
+      if (!skip) {
+        const cp = await pool.query(`SELECT to_regclass('public.contact_persons') AS x`);
+        if (!cp.rows[0]?.x) {
+          const sql020 = readFileSync(path.join(migrationsDir, "020_contact_persons.sql"), "utf8");
+          await pool.query(sql020);
+        }
+      }
     } catch {
       skip = true;
     }

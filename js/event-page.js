@@ -7,6 +7,51 @@ function navigateToEvent(eventId) {
   navigateTo('event');
 }
 
+/** Open Google Maps for a venue (name, address, city). */
+function pldOpenVenueInMaps(venue) {
+  if (!venue || typeof venue !== 'object') {
+    if (typeof showToast === 'function') showToast('No venue set', 'warning');
+    return;
+  }
+  const parts = [];
+  if (venue.name) parts.push(String(venue.name));
+  if (venue.address) parts.push(String(venue.address));
+  else if (venue.line1) parts.push(String(venue.line1));
+  if (venue.city) parts.push(String(venue.city));
+  const q = parts.filter(Boolean).join(', ');
+  if (!q.trim()) {
+    if (typeof showToast === 'function') showToast('No address to show on map', 'warning');
+    return;
+  }
+  window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q), '_blank', 'noopener,noreferrer');
+}
+
+function pldOpenVenueInMapsFromId(venueId) {
+  const v = typeof getVenue === 'function' ? getVenue(venueId) : null;
+  if (!v) {
+    if (typeof showToast === 'function') showToast('No venue set', 'warning');
+    return;
+  }
+  pldOpenVenueInMaps(v);
+}
+
+function epTryNavigateToClient(clientId) {
+  if (!clientId) {
+    if (typeof showToast === 'function') showToast('No client linked', 'warning');
+    return;
+  }
+  if (typeof navigateToClient === 'function') navigateToClient(clientId);
+}
+
+function epNavEventSchedule() {
+  switchEventTab('schedule');
+}
+
+function endEditEventHeader() {
+  eventEditingField = null;
+  renderPage('event');
+}
+
 function switchEventTab(tab) {
   eventPageTab = tab;
   if (tab === 'travel' && selectedEventId && typeof pldRefreshEventTravel === 'function') {
@@ -52,9 +97,14 @@ async function saveEventHeaderField(eventId, field, value) {
   } else if (field === 'priority') {
     ev.priority = value;
     patch.priority = value;
+  } else if (field === 'status') {
+    ev.status = value;
+    patch.status = value;
   }
   await persistEventFields(eventId, patch);
-  eventEditingField = null;
+  if (eventEditingField !== 'all') {
+    eventEditingField = null;
+  }
   renderPage('event');
   showToast('Saved', 'success');
 }
@@ -67,9 +117,26 @@ function beginEditEventHeader(field) {
 function renderEventPage() {
   const ev = EVENTS.find(e => e.id === selectedEventId);
   if (!ev) return '<div class="empty-state"><h3>Event not found</h3><button class="btn btn-primary" onclick="navigateTo(\'events\')">Back to Events</button></div>';
+  const escHtml = s =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+  const isAll = eventEditingField === 'all';
+  const editClient = eventEditingField === 'client' || isAll;
+  const editVenue = eventEditingField === 'venue' || isAll;
+  const editDates = eventEditingField === 'dates' || isAll;
+  const editName = eventEditingField === 'name' || isAll;
+  const editPriority = eventEditingField === 'priority' || isAll;
+  const editStatus = isAll;
+  const pencilSvg =
+    '<svg class="ep-meta-edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const venueProfileSvg =
+    '<svg class="ep-meta-edit-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>';
   const client = getClient(ev.client) || { name: '—', contact: '' };
   const venue = getVenue(ev.venue);
   const priorityColors = { critical: 'var(--accent-red)', high: 'var(--accent-orange)', medium: 'var(--accent-amber)', low: 'var(--text-tertiary)' };
+  const st = ev.status || 'draft';
 
   const crewN = Array.isArray(ev.crew) ? ev.crew.length : 0;
   const trucksN = Array.isArray(ev.trucks) ? ev.trucks.length : 0;
@@ -105,18 +172,24 @@ function renderEventPage() {
 
   return `
     <div class="event-page">
-      <!-- Persistent Header (inline editable) -->
+      <!-- Persistent Header (navigate + inline edit) -->
       <div class="ep-header">
         <div class="ep-header-left">
           <div class="ep-title-row">
-            ${eventEditingField === 'name' ? `
+            ${editName ? `
               <input type="text" class="form-input ep-title-inline" value="${ev.name.replace(/"/g, '&quot;')}" style="font-size:24px;font-weight:700;max-width:400px;"
                 onkeydown="if(event.key==='Enter'){saveEventHeaderField('${ev.id}','name',this.value);}"
                 onblur="saveEventHeaderField('${ev.id}','name',this.value);"
                 onclick="event.stopPropagation();" />
-            ` : `<h1 class="ep-title ep-clickable" title="Click to edit" onclick="beginEditEventHeader('name')">${ev.name}</h1>`}
+            ` : `<h1 class="ep-title ep-clickable" title="Click to edit" onclick="beginEditEventHeader('name')">${escHtml(ev.name)}</h1>`}
             <span class="phase-badge ${ev.phase}">${PHASE_LABELS[ev.phase]}</span>
-            ${eventEditingField === 'priority' ? `
+            ${editStatus ? `
+              <select class="form-select ep-status-inline" style="max-width:150px;padding:4px 8px;font-size:13px;"
+                onchange="saveEventHeaderField('${ev.id}','status',this.value);" onclick="event.stopPropagation();" aria-label="Event status">
+                ${EVENT_STATUSES_UI.map(s => `<option value="${s}" ${st === s ? 'selected' : ''}>${STATUS_LABELS[s] || s}</option>`).join('')}
+              </select>
+            ` : `<span class="ep-status-badge ${st === 'cancelled' ? 'ep-status-cancelled' : ''}" title="Status (use Edit details to change)">${STATUS_LABELS[st] || st}</span>`}
+            ${editPriority ? `
               <select class="form-select ep-priority-inline" style="max-width:120px;padding:4px 8px;font-size:13px;"
                 onchange="saveEventHeaderField('${ev.id}','priority',this.value);" onclick="event.stopPropagation();">
                 ${['low','medium','high','critical'].map(p => `<option value="${p}" ${ev.priority===p?'selected':''}>${p}</option>`).join('')}
@@ -124,30 +197,60 @@ function renderEventPage() {
             ` : `<span class="ep-priority ep-clickable" style="color:${priorityColors[ev.priority]};" title="Click to edit" onclick="beginEditEventHeader('priority')">${ev.priority}</span>`}
           </div>
           <div class="ep-meta-row">
-            ${eventEditingField === 'client' ? `
+            ${editClient ? `
               <span class="ep-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
               <select class="form-select" style="max-width:180px;padding:4px 8px;font-size:13px;display:inline-block;" onchange="saveEventHeaderField('${ev.id}','client',this.value);" onclick="event.stopPropagation();">
                 ${CLIENTS.map(c => `<option value="${c.id}" ${ev.client===c.id?'selected':''}>${c.name}</option>`).join('')}
               </select>
-            ` : `<span class="ep-meta-item ep-clickable" title="Click to edit client" onclick="beginEditEventHeader('client')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> ${client.name}</span>`}
-            ${eventEditingField === 'venue' ? `
+            ` : `
+            <div class="ep-meta-group">
+              <span class="ep-meta-item ep-meta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+              ${ev.client
+                ? `<button type="button" class="ep-meta-nav" onclick="epTryNavigateToClient('${String(ev.client).replace(/'/g, "\\'")}')">${escHtml(client.name)}</button>`
+                : `<span class="ep-meta-muted">—</span>`}
+              <button type="button" class="ep-meta-edit" title="Change client" aria-label="Change client" onclick="event.stopPropagation();beginEditEventHeader('client')">${pencilSvg}</button>
+            </div>`}
+            ${editVenue ? `
               <span class="ep-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
               <select class="form-select" style="max-width:220px;padding:4px 8px;font-size:13px;display:inline-block;" onchange="saveEventHeaderField('${ev.id}','venue',this.value);" onclick="event.stopPropagation();">
                 ${VENUES.map(v => `<option value="${v.id}" ${ev.venue===v.id?'selected':''}>${v.name}, ${v.city}</option>`).join('')}
               </select>
-            ` : `<span class="ep-meta-item ep-clickable" title="Click to edit venue" onclick="beginEditEventHeader('venue')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${venue.name}, ${venue.city}</span>`}
-            ${eventEditingField === 'dates' ? `
+            ` : `
+            <div class="ep-meta-group">
+              <span class="ep-meta-item ep-meta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+              ${ev.venue
+                ? `<button type="button" class="ep-meta-nav" onclick="pldOpenVenueInMapsFromId('${String(ev.venue).replace(/'/g, "\\'")}')">${escHtml(venue && venue.name ? venue.name : '—')}, ${escHtml(venue && venue.city ? venue.city : '')}</button>`
+                : `<span class="ep-meta-muted">—</span>`}
+              <button type="button" class="ep-meta-edit" title="Change venue" aria-label="Change venue" onclick="event.stopPropagation();beginEditEventHeader('venue')">${pencilSvg}</button>
+              ${ev.venue
+                ? `<button type="button" class="ep-meta-edit" title="Venue profile" aria-label="Open venue profile" onclick="event.stopPropagation();typeof navigateToVenue==='function'&&navigateToVenue('${String(ev.venue).replace(/'/g, "\\'")}')">${venueProfileSvg}</button>`
+                : ''}
+            </div>`}
+            ${editDates ? `
               <span class="ep-meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
               <input type="date" class="form-input" value="${ev.startDate}" style="max-width:130px;padding:4px 8px;font-size:13px;display:inline-block;" onchange="saveEventHeaderField('${ev.id}','startDate',this.value);" onclick="event.stopPropagation();" />
               <input type="date" class="form-input" value="${ev.endDate}" style="max-width:130px;padding:4px 8px;font-size:13px;display:inline-block;margin-left:4px;" onchange="saveEventHeaderField('${ev.id}','endDate',this.value);" onclick="event.stopPropagation();" />
-              <button class="btn btn-ghost btn-sm" style="margin-left:4px;" onclick="eventEditingField=null;renderPage('event');">Done</button>
-            ` : `<span class="ep-meta-item ep-clickable" title="Click to edit dates" onclick="beginEditEventHeader('dates')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> ${formatDate(ev.startDate)}${ev.startDate !== ev.endDate ? ' — ' + formatDate(ev.endDate) : ''}</span>`}
+              ${isAll ? '' : `<button type="button" class="btn btn-ghost btn-sm" style="margin-left:4px;" onclick="endEditEventHeader()">Done</button>`}
+            ` : `
+            <div class="ep-meta-group">
+              <span class="ep-meta-item ep-meta-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+              <button type="button" class="ep-meta-nav" onclick="epNavEventSchedule()">${formatDate(ev.startDate)}${ev.startDate !== ev.endDate ? ' — ' + formatDate(ev.endDate) : ''}</button>
+              <button type="button" class="ep-meta-edit" title="Change dates" aria-label="Change dates" onclick="event.stopPropagation();beginEditEventHeader('dates')">${pencilSvg}</button>
+            </div>`}
           </div>
         </div>
         <div class="ep-header-right">
           ${typeof eventPhaseHeaderButtons === 'function' ? eventPhaseHeaderButtons(ev) : ''}
-          <button class="btn btn-ghost btn-sm" onclick="openExportModal('${ev.name}')">Export</button>
+          ${isAll
+            ? `<button type="button" class="btn btn-secondary btn-sm" onclick="endEditEventHeader()">Done</button>`
+            : `<button type="button" class="btn btn-secondary btn-sm" onclick="beginEditEventHeader('all')">Edit details</button>`}
+          <button class="btn btn-ghost btn-sm" onclick="openExportModal(${JSON.stringify(ev.name)})">Export</button>
           <button class="btn btn-ghost btn-sm" onclick="openPrintModal('${ev.id}')">Print</button>
+          ${typeof PLD_EVENTS_FROM_REST !== 'undefined' && PLD_EVENTS_FROM_REST ? `
+          ${st === 'cancelled'
+            ? `<button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent-green);" onclick="typeof pldUncancelEventFromHeader==='function'&&pldUncancelEventFromHeader('${ev.id}')">Restore status</button>`
+            : `<button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent-amber);" onclick="typeof pldCancelEventFromHeader==='function'&&pldCancelEventFromHeader('${ev.id}')">Mark cancelled</button>`}
+          <button type="button" class="btn btn-ghost btn-sm" style="color:var(--accent-red);" onclick="typeof pldDeleteEventFromHeader==='function'&&pldDeleteEventFromHeader('${ev.id}')">Delete</button>` : ''}
         </div>
       </div>
 
@@ -665,8 +768,8 @@ function renderEventRidersTab(ev, client, venue) {
     <div class="ep-riders-tab">
       <div class="ep-tab-header">
         <div class="ep-tab-header-left"><h3>Rider Items</h3></div>
-        <div class="ep-tab-header-right">
-          <button class="btn btn-primary btn-sm" onclick="showToast('Add rider item — coming soon','info')">+ Add Item</button>
+        <div class="ep-tab-header-right" style="font-size:12px;color:var(--text-secondary);max-width:360px;text-align:right;">
+          Rider lines are created from document extraction (<strong>Documents</strong> tab) or bulk import via API — not manual entry here yet.
         </div>
       </div>
 

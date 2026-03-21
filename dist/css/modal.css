@@ -282,6 +282,104 @@
 .form-textarea { resize: vertical; min-height: 80px; }
 .form-select option { background: var(--bg-secondary); }
 
+/* Searchable list picker (js/pld-picker.js) — opens above main modal */
+.pld-picker-overlay {
+  z-index: 200;
+}
+button.pld-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 400;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+button.pld-picker-trigger:hover {
+  border-color: var(--border-strong);
+}
+button.pld-picker-trigger:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px var(--accent-blue-muted);
+}
+.pld-picker-list {
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+}
+.pld-picker-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.pld-picker-row:last-child {
+  border-bottom: none;
+}
+.pld-picker-row:hover {
+  background: var(--bg-hover);
+}
+.pld-picker-primary {
+  font-weight: 500;
+  display: block;
+  line-height: 1.35;
+}
+.pld-picker-secondary {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  display: block;
+  line-height: 1.35;
+}
+
+/* Event picker: date range + phase (js/pld-picker.js pickerFilter: 'events') */
+.pld-picker-filters {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+}
+.pld-picker-filters-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.pld-picker-filters-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+  align-items: end;
+}
+@media (max-width: 480px) {
+  .pld-picker-filters-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ============================================
    Command Palette
    ============================================ */

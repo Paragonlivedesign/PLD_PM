@@ -136,3 +136,41 @@ Same CRUD shape as vendor/venue contacts (polymorphic `contacts` table; path imp
 | created_at | ISO 8601 datetime | |
 | updated_at | ISO 8601 datetime | |
 | deleted_at | ISO 8601 datetime \| null | |
+
+---
+
+### Profile metadata (optional)
+
+`metadata` is merged on `PUT`. For CRM profile UIs, nested keys under **`metadata.profile`** are reserved (all optional; unknown keys are preserved):
+
+| Key | Type | Description |
+|-----|------|-------------|
+| tagline | string | Short subtitle |
+| about | string | Longer description |
+| website | string | URL |
+| social_url | string | Single social / link URL |
+| avatar_document_id | uuid | Reference to a document row (see [documents.contract.md](./documents.contract.md)) |
+| cover_document_id | uuid | Cover / banner image document id |
+
+---
+
+### Nested contact `metadata` (optional)
+
+Contact `metadata` is merged on `PUT`. Common optional keys for rich contact profiles (not exhaustive; clients may store additional keys):
+
+| Key | Description |
+|-----|-------------|
+| name_parts | `{ salutation?, first?, middle?, last? }` |
+| resource_types | string[] or enum-like strings |
+| phones | array of `{ type?, number, ext?, is_default? }` |
+| addresses | `{ mailing?, shipping? }` or typed address array |
+| billing | object (flags, references) |
+| skills | string[] or `{ name, level? }[]` |
+| insurance | object |
+| bill_rates | `{ label, amount, currency }[]` |
+| notifications | per-channel preferences |
+| tasks | `{ id, text, done, due? }[]` (client-generated ids) |
+| notes_extended | string |
+| avatar_document_id | uuid (contact-scoped file) |
+
+Vendor- and venue-nested contacts use the same optional shape.

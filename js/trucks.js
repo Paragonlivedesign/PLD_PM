@@ -337,7 +337,7 @@ function openTruckDetail(truckId) {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-      <div class="form-group"><label class="form-label">Home base</label><input type="text" id="pldTruckDetailHome" class="form-input" value="${homeEsc}" placeholder="Venue, warehouse, address, or lat,lng"><div class="form-hint">Free text: linked venue, warehouse, driver address, or GPS coordinates.</div></div>
+      <div class="form-group"><label class="form-label">Home base</label><div style="display:flex;gap:8px;align-items:stretch;"><input type="text" id="pldTruckDetailHome" class="form-input" style="flex:1;min-width:0" value="${homeEsc}" placeholder="Venue, warehouse, address, or lat,lng"><button type="button" class="btn btn-secondary" style="flex-shrink:0" onclick="void window.pldOpenTruckHomeBasePicker('pldTruckDetailHome')">Browse…</button></div><div class="form-hint">Venues, CRM contact addresses, warehouse, driver text, or GPS — or pick from directory.</div></div>
       <div class="form-group"><label class="form-label">Status</label><select id="pldTruckDetailStatus" class="form-select">${Object.entries(statusLabels).map(([k,v]) => `<option value="${k}" ${t.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
@@ -445,6 +445,117 @@ const PLD_TRUCK_TYPE_OPTIONS = [
   { value: 'other', label: 'Other' },
 ];
 
+/** Address line from CRM contact `metadata` (same shape as contact forms). */
+function pldContactAddressLineFromMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return '';
+  const m = /** @type {Record<string, unknown>} */ (metadata);
+  const direct =
+    m.address ||
+    m.mailing_address ||
+    m.street ||
+    m.street_address ||
+    m.line1 ||
+    m.addr_line1;
+  if (direct != null && String(direct).trim() !== '') return String(direct).trim();
+  const city = m.city != null ? String(m.city).trim() : '';
+  const st = m.state != null ? String(m.state).trim() : '';
+  const zip = m.postal_code != null ? String(m.postal_code) : m.zip != null ? String(m.zip) : '';
+  const tail = [city, st, zip].filter(Boolean).join(', ');
+  return tail || '';
+}
+
+async function pldBuildTruckHomeBasePickerItems() {
+  let items = [];
+  if (typeof pickerItemsHomeBaseFromVenues === 'function') {
+    items = items.concat(
+      pickerItemsHomeBaseFromVenues(typeof VENUES !== 'undefined' && Array.isArray(VENUES) ? VENUES : []),
+    );
+  }
+  if (typeof pldListContactsForParent !== 'function') {
+    return items;
+  }
+  const venues = typeof VENUES !== 'undefined' && Array.isArray(VENUES) ? VENUES.slice(0, 50) : [];
+  const clients = typeof CLIENTS !== 'undefined' && Array.isArray(CLIENTS) ? CLIENTS.slice(0, 50) : [];
+  const vendors = typeof VENDORS !== 'undefined' && Array.isArray(VENDORS) ? VENDORS.slice(0, 50) : [];
+  const batchSize = 10;
+  function pushFromContacts(rows, parentLabel, kind, parentId) {
+    rows.forEach((c) => {
+      const md = c.metadata;
+      const line = pldContactAddressLineFromMetadata(
+        md && typeof md === 'object' && !Array.isArray(md) ? md : {},
+      );
+      if (!line) return;
+      const nm = c.name != null ? String(c.name) : 'Contact';
+      items.push({
+        id: 'hb:c:' + kind + ':' + String(parentId) + ':' + String(c.id),
+        primary: nm,
+        secondary: line + ' · ' + parentLabel,
+        meta: { storageValue: line, kind: 'contact' },
+      });
+    });
+  }
+  for (let vi = 0; vi < venues.length; vi += batchSize) {
+    const vslice = venues.slice(vi, vi + batchSize);
+    await Promise.all(
+      vslice.map((v) =>
+        pldListContactsForParent('venue', String(v.id), { silent: true }).then((rows) => {
+          const pl = v.name != null ? String(v.name) : 'Venue';
+          pushFromContacts(rows, pl, 'venue', v.id);
+        }),
+      ),
+    );
+  }
+  for (let ci = 0; ci < clients.length; ci += batchSize) {
+    const cslice = clients.slice(ci, ci + batchSize);
+    await Promise.all(
+      cslice.map((cl) =>
+        pldListContactsForParent('client', String(cl.id), { silent: true }).then((rows) => {
+          const pl = cl.name != null ? String(cl.name) : 'Client';
+          pushFromContacts(rows, pl, 'client', cl.id);
+        }),
+      ),
+    );
+  }
+  for (let ui = 0; ui < vendors.length; ui += batchSize) {
+    const uslice = vendors.slice(ui, ui + batchSize);
+    await Promise.all(
+      uslice.map((vd) =>
+        pldListContactsForParent('vendor', String(vd.id), { silent: true }).then((rows) => {
+          const pl = vd.name != null ? String(vd.name) : 'Vendor';
+          pushFromContacts(rows, pl, 'vendor', vd.id);
+        }),
+      ),
+    );
+  }
+  return items;
+}
+
+window.pldOpenTruckHomeBasePicker = async function (inputId) {
+  const fid = inputId || 'pldAddTruckHome';
+  if (typeof openPickerModal !== 'function') return;
+  const el = document.getElementById(fid);
+  if (typeof showToast === 'function') showToast('Loading venues and contact addresses…', 'info');
+  let items = [];
+  try {
+    items = await pldBuildTruckHomeBasePickerItems();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(String(e && e.message ? e.message : e), 'error');
+    return;
+  }
+  openPickerModal({
+    title: 'Home base',
+    items,
+    searchPlaceholder: 'Search venue, address, or contact…',
+    emptyMessage:
+      'No venues or CRM contacts with an address in metadata. Type manually, or add address fields on contact records.',
+    onSelect(_i, item) {
+      const storage =
+        item && item.meta && item.meta.storageValue != null ? String(item.meta.storageValue) : '';
+      if (el && storage) el.value = storage;
+    },
+  });
+};
+
 function openAddTruckModal() {
   const typeOpts = PLD_TRUCK_TYPE_OPTIONS.map(
     (o) => `<option value="${o.value}">${o.label}</option>`,
@@ -456,7 +567,7 @@ function openAddTruckModal() {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div class="form-group"><label class="form-label">License Plate</label><input type="text" id="pldAddTruckPlate" class="form-input" placeholder="XX-0000"></div>
-      <div class="form-group"><label class="form-label">Home base</label><input type="text" id="pldAddTruckHome" class="form-input" placeholder="Venue name, warehouse, address, or lat,lng"><div class="form-hint">Venue, warehouse, street address, or GPS — stored as you enter it.</div></div>
+      <div class="form-group"><label class="form-label">Home base</label><div style="display:flex;gap:8px;align-items:stretch;"><input type="text" id="pldAddTruckHome" class="form-input" style="flex:1;min-width:0" placeholder="Venue name, warehouse, address, or lat,lng"><button type="button" class="btn btn-secondary" style="flex-shrink:0" onclick="void window.pldOpenTruckHomeBasePicker('pldAddTruckHome')">Browse…</button></div><div class="form-hint">Venues, CRM contact addresses (metadata), warehouse, or GPS — or pick from directory.</div></div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea id="pldAddTruckNotes" class="form-textarea" placeholder="Equipment inventory, special features…"></textarea></div>
   `;

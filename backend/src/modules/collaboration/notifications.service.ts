@@ -84,8 +84,8 @@ export type SendNotificationInput = {
 };
 
 /**
- * Persist in-app row when in_app pref enabled; log email/slack stubs when enabled.
- * Matches internal contract sendNotification shape (delivered_channels).
+ * Persist in-app row when in_app pref enabled. Email/slack are reported in `delivered_channels`
+ * when the preference is on but are **not** sent to external providers (see collaboration.contract.md).
  */
 export async function sendNotification(
   pool: Pool,
